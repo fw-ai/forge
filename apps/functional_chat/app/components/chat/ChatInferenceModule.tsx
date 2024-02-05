@@ -486,7 +486,7 @@ export function ChatInferenceModule() {
     <div className="md:flex md:space-x-6 sm:mt-4">
       {/*<div className="md:w-2/3">*/}
       <div className="md:w-full">
-        <Card className="max-sm:rounded-none flex h-[calc(100dvh-3.5rem)] sm:h-[calc(100dvh-6rem)] max-sm:w-screen overflow-hidden py-0 ">
+        <Card className="max-sm:rounded-none flex h-[calc(100dvh-1.5rem)] sm:h-[calc(100dvh-2rem)] max-sm:w-screen overflow-hidden py-0 ">
           <div className="pl-4 pt-2 md:pt4 pb-4 flex w-full flex-col flex-1">
             <div className="flex flex-row justify-between">
               {requestBody.messages.length > 0 ? (
@@ -495,8 +495,8 @@ export function ChatInferenceModule() {
                   variant="ghost"
                   onClick={() => setRequestBody({ field: 'messages', value: [] })}
                 >
-                  <span className="hidden md:block">Clear Chat</span>
-                  <TrashIcon className="w-6 h-6 md:hidden" />
+                  {/* <span className="hidden md:block">Clear Chat</span> */}
+                  <TrashIcon className="w-5 h-5 text-zinc-400 md:hidden" />
                 </Button>
               ) : null}
             </div>

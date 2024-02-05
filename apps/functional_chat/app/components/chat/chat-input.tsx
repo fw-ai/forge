@@ -70,7 +70,7 @@ export default function ChatInput(props: {
   return (
     <form
       onSubmit={onSubmit}
-      className="rounded-xl bg-black p-2 w-full overflow-hidden space-y-4 max-sm:w-[96%] mx-auto"
+      className="rounded-xl bg-zinc-200 p-2 w-full overflow-hidden space-y-4 max-sm:w-[96%] mx-auto"
     >
       <div className="flex w-full items-start justify-between sm:gap-4 ">
         <Textarea
@@ -80,13 +80,12 @@ export default function ChatInput(props: {
           placeholder="Type a message"
           ref={textAreaRef}
           rows={1}
-          className="flex-1 border-none text-zinc-400 min-h-[38px] overflow-hidden resize-none text-base"
+          className="flex-1 border-none text-zinc-500 min-h-[38px] overflow-hidden resize-none text-base"
           value={value}
           onChange={handleChange}
         />
         <Button type="submit" disabled={props.isLoading}>
-          <span className="hidden sm:block">Send message</span>
-          <PaperPlaneIcon className="sm:hidden h-6 w-6" />
+          <PaperPlaneIcon className="md:hidden h-5 w-5 text-zinc-400" />
         </Button>
       </div>
     </form>
