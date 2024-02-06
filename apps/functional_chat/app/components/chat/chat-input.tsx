@@ -85,7 +85,7 @@ export default function ChatInput(props: {
           onChange={handleChange}
         />
         <Button type="submit" disabled={props.isLoading}>
-          <PaperPlaneIcon className="md:hidden h-5 w-5 text-zinc-400" />
+          <PaperPlaneIcon className="h-5 w-5 text-zinc-400" />
         </Button>
       </div>
     </form>
