@@ -38,12 +38,12 @@ type ChatState = {
 type ChatAction<Type extends keyof ChatState> = { field: Type; value: ChatState[Type] };
 
 async function chatCompletion(requestBody: ChatState, controller: AbortController, messages: ChatMessage[]): Promise<any> {
+  console.log('DEBUG: calling the model with messages: ' + JSON.stringify(messages, null, 2) + '\n----------------------------------');
   const modelName = process.env.NEXT_PUBLIC_FIREWORKS_CHAT_MODEL;
   const apiKey = process.env.NEXT_PUBLIC_FIREWORKS_API_KEY;
   const systemMessage = {
     role: 'system',
-    content: 'SYSTEM: You are a helpful assistant with access to functions. Use them only if you need more information. Do not abuse function calling.',
-    // content: 'SYSTEM: You are a helpful assistant with access to functions. Use them only if you need more information. When making a decision about whether to call a function, do not be influenced by previous function call decisions. Do not abuse web search.',
+    content: `SYSTEM: You are a helpful assistant with access to functions. Use them if needed. If a function is not available, do not one up. The date and time is ${new Date()}.`
   };
   const response = await fetch('https://api.fireworks.ai/inference/v1/chat/completions',
     {
@@ -89,30 +89,30 @@ async function chatCompletion(requestBody: ChatState, controller: AbortControlle
           //    }
           //  }
           //},
-          {
-            type: 'function',
-            function: {
-              name: 'get_stock_quote',
-              description: 'obtain the latest price and volume information for a given stock ticker symbol',
-              parameters: {
-                type: 'object',
-                properties: {
-                  symbol: {
-                    description: "the stock ticker symbol whose price should be quoted",
-                    type: 'string'
-                  }
-                },
-                required: [
-                  "symbol"
-                ]
-              }
-            }
-          },
+          // {
+          //   type: 'function',
+          //   function: {
+          //     name: 'get_stock_quote',
+          //     description: 'Obtains the latest price and volume information for a given stock ticker symbol.',
+          //     parameters: {
+          //       type: 'object',
+          //       properties: {
+          //         symbol: {
+          //           description: "the stock ticker symbol whose price should be quoted",
+          //           type: 'string'
+          //         }
+          //       },
+          //       required: [
+          //         "symbol"
+          //       ]
+          //     }
+          //   }
+          // },
           {
             type: 'function',
             function: {
               name: 'render_chart',
-              description: 'generate chart from numeric data. The chart is rendered by Chart.js, a popular open-source charting library. The tool output should be displayed as ![text](image_url) where the image url includes blob: prefix',
+              description: 'Generates chart from numeric data. The chart is rendered by Chart.js, a popular open-source charting library. The tool output should be displayed as ![text](image_url) where the image url includes blob: prefix.',
               parameters: {
                 type: 'object',
                 properties: {
@@ -158,7 +158,7 @@ async function chatCompletion(requestBody: ChatState, controller: AbortControlle
             type: 'function',
             function: {
               name: 'generate_image',
-              description: 'generate an image from a text description. The tool output should be displayed as ![text](image_url) where the image url includes blob: prefix',
+              description: 'Generates an image from a text description. The tool output should be displayed as ![text](image_url) where the image url includes blob: prefix.',
               parameters: {
                 type: 'object',
                 properties: {
@@ -177,6 +177,94 @@ async function chatCompletion(requestBody: ChatState, controller: AbortControlle
               }
             }
           },
+          {
+            type: 'function',
+            function: {
+              name: 'popular_destinations',
+              description: 'Gets the most popular directions from a specified city. Convert tool output to full city names.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  origin_iata: {
+                    type: 'string',
+                    pattern: '^[A-Z]{2,3}$',
+                    description: 'The point of departure. Must be an IATA city code or a country code, 2 to 3 symbols in length.'
+                  }
+                },
+                required: ['origin_iata']
+              }
+            }
+          },
+          {
+            type: 'function',
+            function: {
+              name: 'weather_history',
+              description: 'Retrieves daily historical weather records for a given location and month.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  locations: {
+                    description: 'Location to get the weather for (e.g., city or country).',
+                    type: 'string'
+                  },
+                  month: {
+                    description: 'Month number. Must be between 1 and 12.',
+                    type: 'number'
+                  }
+                },
+                required: ['locations', 'month']
+              }
+            }
+          },
+          /*
+          {
+            type: 'function',
+            function: {
+              name: 'flight_prices',
+              description: 'Returns flight tickets for specific destinations and dates.',
+              parameters: {
+                type: 'object',
+                properties: {
+                  origin: {
+                    type: 'string',
+                    pattern: '^[A-Z]{3}$',
+                    description: 'An IATA code of a city or an airport of the origin.'
+                  },
+                  destination: {
+                    type: 'string',
+                    pattern: '^[A-Z]{3}$',
+                    description: 'An IATA code of a city or an airport of the destination. Required if "origin" is not specified.'
+                  },
+                  departure_at: {
+                    type: 'string',
+                    pattern: '^\\d{4}-\\d{2}(-\\d{2})?$',
+                    description: 'The departure date in "YYYY-MM" or "YYYY-MM-DD" format.'
+                  },
+                  return_at: {
+                    type: 'string',
+                    pattern: '^\\d{4}-\\d{2}(-\\d{2})?$',
+                    description: 'The return date in "YYYY-MM" or "YYYY-MM-DD" format. Do not specify for one-way tickets.'
+                  },
+                  one_way: {
+                    type: 'boolean',
+                    description: 'Indicates if the ticket is one-way (true) or round-trip (false).'
+                  },
+                  direct: {
+                    type: 'boolean',
+                    default: false,
+                    description: 'Indicates if only non-stop tickets should be returned. Default is false.'
+                  },
+                  sorting: {
+                    type: 'string',
+                    enum: ['price', 'route'],
+                    default: 'price',
+                    description: 'The sorting method of prices. Default is "price". Options are "price" and "route".'
+                  }
+                },
+                required: ['origin']
+              }
+            }
+          }, */
         ]
       })
     });
@@ -208,7 +296,7 @@ async function chatCompletion(requestBody: ChatState, controller: AbortControlle
 
 // Function to call the Bing Search API
 async function searchBing(query: string): Promise<BingSearchResponse> {
-  const apiKey = 'fe79bb40587c427aa53ae3a01f215f18'; // Replace with your Bing Search API key
+  const apiKey = process.env.NEXT_PUBLIC_BING_SEARCH_KEY || 'set the key in .env or .env.local';
   const endpoint = 'https://api.bing.microsoft.com/v7.0/search';
   const resultsCount = 5; // Number of results to return
 
@@ -262,7 +350,7 @@ async function getStockQuote(args: string): Promise<any> {
   }
   const symbol = jsonObj.symbol;
 
-  const apiKey = 'T1P19WHZ6HXFQG0L';
+  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_KEY;
   const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
 
   try {
@@ -277,6 +365,165 @@ async function getStockQuote(args: string): Promise<any> {
     return JSON.stringify(data, null);
   } catch (error) {
     console.error('Error fetching stock quote:', error);
+    throw error;
+  }
+}
+
+async function popularDestinations(args: string): Promise<any> {
+  const jsonObj = JSON.parse(args);
+
+  if (!jsonObj || typeof jsonObj !== 'object' || !('origin_iata' in jsonObj)) {
+    throw new Error(`Cannot parse popular destinations arguments: ${args}`);
+  }
+
+  const apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || 'set the key in .env or .env.local';
+  const accessToken = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
+
+  const url = new URL('https://travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com/v1/city-directions');
+  url.searchParams.append('origin', jsonObj.origin_iata);
+  url.searchParams.append('currency', 'USD');
+
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'X-Access-Token': accessToken,
+        'X-RapidAPI-Key': apiKey,
+        'X-RapidAPI-Host': 'travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com'
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error(`Requesting popular destinations with args ${args} failed with code ${response.status} message ${await response.text()}`);
+    }
+
+    let data = await response.json();
+    if (data.data === undefined) {
+      return JSON.stringify(data, null);
+    }
+    data = data.data;
+
+    // Take the top 10 entries.
+    data = Object.keys(data).slice(0, 10).map(key => [key, data[key]]);
+
+    return JSON.stringify(data, null);
+  } catch (error) {
+    console.error('Error requesting popular destinations:', error);
+    throw error;
+  }
+}
+
+async function weatherHistory(args: string): Promise<any> {
+  const jsonObj = JSON.parse(args);
+
+  if (!jsonObj || typeof jsonObj !== 'object') {
+    throw new Error(`Cannot parse weather history arguments: ${args}`);
+  }
+
+  const apiKey = process.env.NEXT_PUBLIC_VISUALCROSSING_KEY || 'set the key in .env or .env.local';
+
+  const url = new URL('https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/history');
+
+  url.searchParams.append('key', apiKey);
+  url.searchParams.append('aggregateHours', '24');
+  url.searchParams.append('unitGroup', 'us');
+  url.searchParams.append('contentType', 'json');
+  url.searchParams.append('outputDateTimeFormat', 'yyyy-MM-dd');
+
+  if (jsonObj.month !== undefined) {
+    const year = new Date().getFullYear() - 1;
+    const month = Number(jsonObj.month);
+    const lastDay = new Date(year, month, 0).getDate();
+    url.searchParams.append('startDateTime', `${year}-${month}-01`);
+    url.searchParams.append('endDateTime', `${year}-${month}-${lastDay}`);
+  }
+  if (jsonObj.locations !== undefined) {
+    url.searchParams.append('locations', jsonObj.locations);
+  }
+
+  try {
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(`Requesting historical weather with args ${args} failed with code ${response.status} message ${await response.text()}`);
+    }
+
+    let data = await response.json();
+
+    if (data.columns === undefined || data.locations === undefined) {
+      return JSON.stringify(data, null);
+    }
+
+    const columns = data.columns;
+    const transformed: Record<string, any[]> = {};
+    Object.keys(data.locations).forEach(locationKey => {
+      const location = data.locations[locationKey];
+      const values = location.values.map((value: Record<string, any>) => {
+        const transformedValue: any = {};
+        Object.entries(columns).forEach(([key, column]) => {
+          if (key === 'temp' || key === 'precip') {
+            const col = column as any;
+            transformedValue[col.name] = value[key];
+          }
+        });
+        if (value.datetimeStr !== undefined) {
+          transformedValue['datetimeStr'] = value.datetimeStr;
+        }
+        return transformedValue;
+      });
+      transformed[locationKey] = values;
+    });
+
+    return JSON.stringify(transformed, null);
+  } catch (error) {
+    console.error('Error requesting historical weather:', error);
+    throw error;
+  }
+}
+
+async function flightPrices(args: string): Promise<any> {
+  const jsonObj = JSON.parse(args);
+
+  const apiKey = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
+  const url = new URL('https://api.travelpayouts.com/aviasales/v3/prices_for_dates');
+  if (jsonObj.origin !== undefined) {
+    url.searchParams.append('origin', jsonObj.origin);
+  }
+  if (jsonObj.destination !== undefined) {
+    url.searchParams.append('destination', jsonObj.destination);
+  }
+  if (jsonObj.departureAt !== undefined) {
+    url.searchParams.append('departure_at', jsonObj.departureAt);
+  }
+  if (jsonObj.returnAt !== undefined) {
+    url.searchParams.append('return_at', jsonObj.returnAt);
+  }
+  if (jsonObj.sorting !== undefined) {
+    url.searchParams.append('sorting', jsonObj.sorting);
+  }
+  if (jsonObj.direct !== undefined) {
+    url.searchParams.append('direct', jsonObj.direct.toString());
+  }
+  if (jsonObj.oneWay !== undefined) {
+    url.searchParams.append('one_way', jsonObj.oneWay.toString());
+  }
+  url.searchParams.append('currency', 'USD');
+  url.searchParams.append('market', 'us');
+  url.searchParams.append('limit', '10');
+  url.searchParams.append('token', apiKey);
+
+  try {
+    const response = await fetch(url.toString());
+
+    if (!response.ok) {
+      throw new Error(`Requesting flight prices with ${args} failed with code ${response.status} message ${await response.text()}`);
+    }
+
+    const data = await response.json();
+
+    return JSON.stringify(data, null);
+  } catch (error) {
+    console.error('Error fetching flight prices:', error);
     throw error;
   }
 }
@@ -300,7 +547,6 @@ async function renderChart(args: string): Promise<string> {
 
   // Create a local URL for the Blob
   const localUrl = URL.createObjectURL(imageBlob);
-  console.log('DEBUG: localUrl: ' + localUrl);
   return JSON.stringify({ image_url: localUrl });
 }
 
@@ -316,12 +562,13 @@ async function generateImage(args: string): Promise<string> {
 
   const baseApiUrl = 'https://api.fireworks.ai/inference/v1/image_generation';
   const modelId = process.env.NEXT_PUBLIC_FIREWORKS_IMAGE_GEN_MODEL;
+  const apiKey = process.env.NEXT_PUBLIC_FIREWORKS_API_KEY;
   const response = await fetch(`${baseApiUrl}/${modelId}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'image/jpeg',
-      'Authorization': `Bearer X1FhZWbW6XEqgQnRZc4IuLGBinnAH9hgJleSijzzAGGW7ZKW`,
+      'Authorization': `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
       cfg_scale: 7,
@@ -350,6 +597,7 @@ async function generateImage(args: string): Promise<string> {
 };
 
 async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> {
+  console.log('DEBUG: call functions message: ' + JSON.stringify(message));
   if (message.toolCalls === undefined) {
     return null;
   }
@@ -373,6 +621,15 @@ async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> 
       break;
     case 'generate_image':
       content = await generateImage(func.arguments);
+      break;
+    case 'popular_destinations':
+      content = await popularDestinations(func.arguments);
+      break;
+    case 'weather_history':
+      content = await weatherHistory(func.arguments);
+      break;
+    case 'flight_prices':
+      content = await flightPrices(func.arguments);
       break;
     default:
       throw new Error(`Unsupported function: ${func.name}`);
@@ -496,7 +753,7 @@ export function ChatInferenceModule() {
                   onClick={() => setRequestBody({ field: 'messages', value: [] })}
                 >
                   {/* <span className="hidden md:block">Clear Chat</span> */}
-                  <TrashIcon className="w-5 h-5 text-zinc-400 md:hidden" />
+                  <TrashIcon className="w-5 h-5 text-zinc-400" />
                 </Button>
               ) : null}
             </div>
