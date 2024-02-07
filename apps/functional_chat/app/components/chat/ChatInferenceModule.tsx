@@ -13,17 +13,6 @@ import { ChatScrollAnchor } from './ChatScrollAnchor';
 
 const controller = new AbortController();
 
-type BingSearchResponse = {
-  // Structure based on Bing API response format
-  webPages: {
-    value: Array<{
-      name: string;
-      url: string;
-      snippet: string;
-    }>;
-  };
-};
-
 type ChatState = {
   messages: ChatMessage[];
   temperature: number;
@@ -38,13 +27,14 @@ type ChatState = {
 type ChatAction<Type extends keyof ChatState> = { field: Type; value: ChatState[Type] };
 
 async function chatCompletion(requestBody: ChatState, controller: AbortController, messages: ChatMessage[]): Promise<any> {
-  console.log('DEBUG: calling the model with messages: ' + JSON.stringify(messages, null, 2) + '\n----------------------------------');
+  console.log(`DEBUG: calling the model with messages: ${JSON.stringify(messages, null, 2)}\n----------------------------------`);
   const modelName = process.env.NEXT_PUBLIC_FIREWORKS_CHAT_MODEL;
   const apiKey = process.env.NEXT_PUBLIC_FIREWORKS_API_KEY;
   const systemMessage = {
     role: 'system',
     content: `SYSTEM: You are a helpful assistant with access to functions. Use them if needed. If a function is not available, do not one up. The date and time is ${new Date()}.`
   };
+
   const response = await fetch('https://api.fireworks.ai/inference/v1/chat/completions',
     {
       method: 'POST',
@@ -92,13 +82,13 @@ async function chatCompletion(requestBody: ChatState, controller: AbortControlle
           // {
           //   type: 'function',
           //   function: {
-          //     name: 'get_stock_quote',
+          //     name: 'stock_quote',
           //     description: 'Obtains the latest price and volume information for a given stock ticker symbol.',
           //     parameters: {
           //       type: 'object',
           //       properties: {
           //         symbol: {
-          //           description: "the stock ticker symbol whose price should be quoted",
+          //           description: "The stock ticker symbol whose price should be quoted.",
           //           type: 'string'
           //         }
           //       },
@@ -181,7 +171,7 @@ async function chatCompletion(requestBody: ChatState, controller: AbortControlle
             type: 'function',
             function: {
               name: 'popular_destinations',
-              description: 'Gets the most popular directions from a specified city. Convert tool output to full city names.',
+              description: 'Gets the most popular directions and corresponding airplane ticket prices from a specified city. Convert tool output to full city names.',
               parameters: {
                 type: 'object',
                 properties: {
@@ -294,310 +284,30 @@ async function chatCompletion(requestBody: ChatState, controller: AbortControlle
   } as ChatMessage;
 }
 
-// Function to call the Bing Search API
-async function searchBing(query: string): Promise<BingSearchResponse> {
-  const apiKey = process.env.NEXT_PUBLIC_BING_SEARCH_KEY || 'set the key in .env or .env.local';
-  const endpoint = 'https://api.bing.microsoft.com/v7.0/search';
-  const resultsCount = 5; // Number of results to return
-
-  try {
-    const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&count=${resultsCount}`, {
-      headers: {
-        'Ocp-Apim-Subscription-Key': apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error from Bing API: ${response.statusText}`);
-    }
-
-    const fullResponse = await response.json();
-
-    // Extract only the desired fields
-    const data: BingSearchResponse = {
-      webPages: {
-        value: fullResponse.webPages.value.map((item: any) => ({
-          name: item.name,
-          url: item.url,
-          snippet: item.snippet
-        }))
-      }
-    };
-
-    return data;
-  } catch (error) {
-    console.error('Error calling Bing Search API', error);
-    throw error;
-  }
-}
-
-async function webSearch(args: string): Promise<string> {
-  const jsonObj = JSON.parse(args);
-
-  if (!jsonObj || typeof jsonObj !== 'object' || !('query' in jsonObj)) {
-    throw new Error(`Cannot parse web search arguments: ${args}`);
-  }
-  const query = jsonObj.query;
-  const response = await searchBing(query);
-  return JSON.stringify(response, null);
-}
-
-async function getStockQuote(args: string): Promise<any> {
-  const jsonObj = JSON.parse(args);
-
-  if (!jsonObj || typeof jsonObj !== 'object' || !('symbol' in jsonObj)) {
-    throw new Error(`Cannot parse get stock quote arguments: ${args}`);
-  }
-  const symbol = jsonObj.symbol;
-
-  const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_KEY;
-  const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
-
-  try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`Requesting stock for symbol ${symbol} failed with code ${response.status} message ${await response.text()}`);
-    }
-
-    const data = await response.json();
-
-    return JSON.stringify(data, null);
-  } catch (error) {
-    console.error('Error fetching stock quote:', error);
-    throw error;
-  }
-}
-
-async function popularDestinations(args: string): Promise<any> {
-  const jsonObj = JSON.parse(args);
-
-  if (!jsonObj || typeof jsonObj !== 'object' || !('origin_iata' in jsonObj)) {
-    throw new Error(`Cannot parse popular destinations arguments: ${args}`);
-  }
-
-  const apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || 'set the key in .env or .env.local';
-  const accessToken = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
-
-  const url = new URL('https://travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com/v1/city-directions');
-  url.searchParams.append('origin', jsonObj.origin_iata);
-  url.searchParams.append('currency', 'USD');
-
-  try {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'X-Access-Token': accessToken,
-        'X-RapidAPI-Key': apiKey,
-        'X-RapidAPI-Host': 'travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com'
-      }
-    });
-
-    if (!response.ok) {
-      throw new Error(`Requesting popular destinations with args ${args} failed with code ${response.status} message ${await response.text()}`);
-    }
-
-    let data = await response.json();
-    if (data.data === undefined) {
-      return JSON.stringify(data, null);
-    }
-    data = data.data;
-
-    // Take the top 10 entries.
-    data = Object.keys(data).slice(0, 10).map(key => [key, data[key]]);
-
-    return JSON.stringify(data, null);
-  } catch (error) {
-    console.error('Error requesting popular destinations:', error);
-    throw error;
-  }
-}
-
-async function weatherHistory(args: string): Promise<any> {
-  const jsonObj = JSON.parse(args);
-
-  if (!jsonObj || typeof jsonObj !== 'object') {
-    throw new Error(`Cannot parse weather history arguments: ${args}`);
-  }
-
-  const apiKey = process.env.NEXT_PUBLIC_VISUALCROSSING_KEY || 'set the key in .env or .env.local';
-
-  const url = new URL('https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/history');
-
-  url.searchParams.append('key', apiKey);
-  url.searchParams.append('aggregateHours', '24');
-  url.searchParams.append('unitGroup', 'us');
-  url.searchParams.append('contentType', 'json');
-  url.searchParams.append('outputDateTimeFormat', 'yyyy-MM-dd');
-
-  if (jsonObj.month !== undefined) {
-    const year = new Date().getFullYear() - 1;
-    const month = Number(jsonObj.month);
-    const lastDay = new Date(year, month, 0).getDate();
-    url.searchParams.append('startDateTime', `${year}-${month}-01`);
-    url.searchParams.append('endDateTime', `${year}-${month}-${lastDay}`);
-  }
-  if (jsonObj.locations !== undefined) {
-    url.searchParams.append('locations', jsonObj.locations);
-  }
-
-  try {
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`Requesting historical weather with args ${args} failed with code ${response.status} message ${await response.text()}`);
-    }
-
-    let data = await response.json();
-
-    if (data.columns === undefined || data.locations === undefined) {
-      return JSON.stringify(data, null);
-    }
-
-    const columns = data.columns;
-    const transformed: Record<string, any[]> = {};
-    Object.keys(data.locations).forEach(locationKey => {
-      const location = data.locations[locationKey];
-      const values = location.values.map((value: Record<string, any>) => {
-        const transformedValue: any = {};
-        Object.entries(columns).forEach(([key, column]) => {
-          if (key === 'temp' || key === 'precip') {
-            const col = column as any;
-            transformedValue[col.name] = value[key];
-          }
-        });
-        if (value.datetimeStr !== undefined) {
-          transformedValue['datetimeStr'] = value.datetimeStr;
-        }
-        return transformedValue;
-      });
-      transformed[locationKey] = values;
-    });
-
-    return JSON.stringify(transformed, null);
-  } catch (error) {
-    console.error('Error requesting historical weather:', error);
-    throw error;
-  }
-}
-
-async function flightPrices(args: string): Promise<any> {
-  const jsonObj = JSON.parse(args);
-
-  const apiKey = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
-  const url = new URL('https://api.travelpayouts.com/aviasales/v3/prices_for_dates');
-  if (jsonObj.origin !== undefined) {
-    url.searchParams.append('origin', jsonObj.origin);
-  }
-  if (jsonObj.destination !== undefined) {
-    url.searchParams.append('destination', jsonObj.destination);
-  }
-  if (jsonObj.departureAt !== undefined) {
-    url.searchParams.append('departure_at', jsonObj.departureAt);
-  }
-  if (jsonObj.returnAt !== undefined) {
-    url.searchParams.append('return_at', jsonObj.returnAt);
-  }
-  if (jsonObj.sorting !== undefined) {
-    url.searchParams.append('sorting', jsonObj.sorting);
-  }
-  if (jsonObj.direct !== undefined) {
-    url.searchParams.append('direct', jsonObj.direct.toString());
-  }
-  if (jsonObj.oneWay !== undefined) {
-    url.searchParams.append('one_way', jsonObj.oneWay.toString());
-  }
-  url.searchParams.append('currency', 'USD');
-  url.searchParams.append('market', 'us');
-  url.searchParams.append('limit', '10');
-  url.searchParams.append('token', apiKey);
-
-  try {
-    const response = await fetch(url.toString());
-
-    if (!response.ok) {
-      throw new Error(`Requesting flight prices with ${args} failed with code ${response.status} message ${await response.text()}`);
-    }
-
-    const data = await response.json();
-
-    return JSON.stringify(data, null);
-  } catch (error) {
-    console.error('Error fetching flight prices:', error);
-    throw error;
-  }
-}
-
-async function renderChart(args: string): Promise<string> {
-  const jsonObj = JSON.parse(args);
-
-  if (!jsonObj || typeof jsonObj !== 'object') {
-    throw new Error(`Cannot parse render chart arguments: ${args}`);
-  }
-  const chartJson = encodeURIComponent(JSON.stringify(jsonObj));
-  const url = `https://quickchart.io/chart?c=${chartJson}`;
-
-  const response = await fetch(url);
+async function callFunction(name: string, args: string): Promise<any> {
+  const response = await fetch(`/api/functions/${name}?action=call&args=${encodeURIComponent(args)}`);
   if (!response.ok) {
-    throw new Error(`Error fetching image: ${response.statusText}`);
+    const errorDetails = await response.text();
+    throw new Error(`Function call failed: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
-
-  // Convert to Blob
-  const imageBlob = await response.blob();
-
-  // Create a local URL for the Blob
-  const localUrl = URL.createObjectURL(imageBlob);
-  return JSON.stringify({ image_url: localUrl });
+  const data = await response.json();
+  return JSON.stringify(data);
 }
 
-async function generateImage(args: string): Promise<string> {
-  const jsonObj = JSON.parse(args);
-
-  if (!jsonObj || typeof jsonObj !== 'object' || !('prompt' in jsonObj)) {
-    throw new Error(`Cannot parse generate image arguments: ${args}`);
+async function generateImage(name: string, args: string): Promise<string> {
+  const response = await fetch(`/api/functions/${name}?action=call&args=${encodeURIComponent(args)}`);
+  if (!response.ok) {
+    const errorDetails = await response.text();
+    throw new Error(`Function call failed: ${response.status} ${response.statusText} - ${errorDetails}`);
   }
-
-  const prompt = jsonObj.prompt;
-  const negativePrompt: string | undefined = jsonObj.negative_prompt;
-
-  const baseApiUrl = 'https://api.fireworks.ai/inference/v1/image_generation';
-  const modelId = process.env.NEXT_PUBLIC_FIREWORKS_IMAGE_GEN_MODEL;
-  const apiKey = process.env.NEXT_PUBLIC_FIREWORKS_API_KEY;
-  const response = await fetch(`${baseApiUrl}/${modelId}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'image/jpeg',
-      'Authorization': `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      cfg_scale: 7,
-      height: 1024,
-      width: 1024,
-      sampler: null,
-      samples: 1,
-      steps: 30,
-      seed: 0,
-      style_preset: null,
-      safety_check: false,
-      prompt: prompt,
-      negative_prompt: negativePrompt,
-    }),
-  });
-
-  if (response === null || !response.ok) {
-    throw new Error((await response?.text()) ?? 'Something went wrong generating the image. Please try again');
-  }
-
-  // Convert to Blob
+  // Assuming the server returns a direct link to the image
   const imageBlob = await response.blob();
-  // Create a local URL for the Blob
-  const localUrl = URL.createObjectURL(imageBlob);
-  return JSON.stringify({ image_url: localUrl });
+  const imageUrl = URL.createObjectURL(imageBlob);
+
+  return JSON.stringify({ image_url: imageUrl });
 };
 
 async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> {
-  console.log('DEBUG: call functions message: ' + JSON.stringify(message));
   if (message.toolCalls === undefined) {
     return null;
   }
@@ -611,28 +321,28 @@ async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> 
   let content: string;
   switch (func.name.toLowerCase()) {
     case 'web_search':
-      content = await webSearch(func.arguments);
+      content = await callFunction('webSearch', func.arguments);
       break;
-    case 'get_stock_quote':
-      content = await getStockQuote(func.arguments);
+    case 'stock_quote':
+      content = await callFunction('stockQuote', func.arguments);
       break;
     case 'render_chart':
-      content = await renderChart(func.arguments);
+      content = await generateImage('renderChart', func.arguments);
       break;
     case 'generate_image':
-      content = await generateImage(func.arguments);
+      content = await generateImage('generateImage', func.arguments);
       break;
     case 'popular_destinations':
-      content = await popularDestinations(func.arguments);
+      content = await callFunction('popularDestinations', func.arguments);
       break;
     case 'weather_history':
-      content = await weatherHistory(func.arguments);
+      content = await callFunction('weatherHistory', func.arguments);
       break;
     case 'flight_prices':
-      content = await flightPrices(func.arguments);
+      content = await callFunction('flightPrices', func.arguments);
       break;
     default:
-      throw new Error(`Unsupported function: ${func.name}`);
+      throw new Error(`Unsupported function: $ { func.name }`);
   }
 
   return {
