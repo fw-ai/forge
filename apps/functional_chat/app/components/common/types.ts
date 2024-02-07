@@ -80,14 +80,14 @@ export interface CompletionResponse {
   choices: Choice[];
 }
 
-interface Card {
-  brand: string;
-  last4: string;
-  exp_month: number;
-  exp_year: number;
-}
-
-export interface PaymentMethod {
-  id: string;
-  card: Card;
+export interface ChatState {
+  messages: ChatMessage[];
+  temperature: number;
+  max_tokens: number;
+  top_p: number;
+  top_k: number;
+  presence_penalty: number;
+  frequency_penalty: number;
+  stop: string[];
+  context_length_exceeded_behavior: 'truncate' | 'error';
 }
