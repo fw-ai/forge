@@ -3,23 +3,25 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 class Api {
   static async spec(req: NextApiRequest, res: NextApiResponse) {
     res.json({
-      type: 'function',
-      function: {
-        name: 'weather_history',
-        description: 'Retrieves daily historical weather records for a given location and month.',
-        parameters: {
-          type: 'object',
-          properties: {
-            locations: {
-              description: 'Location to get the weather for (e.g., city or country).',
-              type: 'string'
+      json_schema: {
+        type: 'function',
+        function: {
+          name: 'weather_history',
+          description: 'Retrieves daily historical weather records for a given location and month.',
+          parameters: {
+            type: 'object',
+            properties: {
+              locations: {
+                description: 'Location to get the weather for (e.g., city or country).',
+                type: 'string'
+              },
+              month: {
+                description: 'Month number. Must be between 1 and 12.',
+                type: 'number'
+              }
             },
-            month: {
-              description: 'Month number. Must be between 1 and 12.',
-              type: 'number'
-            }
-          },
-          required: ['locations', 'month']
+            required: ['locations', 'month']
+          }
         }
       }
     });
