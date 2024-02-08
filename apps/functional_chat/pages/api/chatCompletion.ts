@@ -60,6 +60,26 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const tools = await fetchFunctionSpecs(endpoints);
 
   // console.log(`DEBUG: calling the model with messages: ${JSON.stringify([systemMessage, ...messages], null, 2)}\ntools: ${JSON.stringify(tools, null, 2)}\n----------------------------------`);
+  const body = {
+    ...requestBody,
+    model: modelName,
+    stream: false,
+    n: 1,
+    temperature: 0,
+    prompt_cache_max_len: 0,
+    // logprobs: 1,
+    // raw_output: true,
+    messages: [
+      systemMessage,
+      ...messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
+        ...(m.toolCalls ? { tool_calls: m.toolCalls } : {}),
+      }))],
+    tools: tools,
+  };
+  console.log(`DEBUG: chat completion request: ${JSON.stringify(body, null, 2)}`);
   const response = await fetch('https://api.fireworks.ai/inference/v1/chat/completions',
     {
       method: 'POST',
@@ -68,25 +88,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         Accept: 'application/json',
         Authorization: `Bearer ${apiKey}`,
       },
-      body: JSON.stringify({
-        ...requestBody,
-        model: modelName,
-        stream: false,
-        n: 1,
-        temperature: 0,
-        prompt_cache_max_len: 0,
-        // logprobs: 1,
-        // raw_output: true,
-        messages: [
-          systemMessage,
-          ...messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-            ...(m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
-            ...(m.toolCalls ? { tool_calls: m.toolCalls } : {}),
-          }))],
-        tools: tools,
-      })
+      body: JSON.stringify(body)
     });
 
   if (!response.ok) {
@@ -99,7 +101,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   const data = await response.json();
-  console.log(`DEBUG: completion: ${JSON.stringify(data, null, 2)}`);
+  console.log(`DEBUG: chat completion response: ${JSON.stringify(data, null, 2)}`);
 
   const toolCalls = data.choices[0].message.tool_calls;
   res.json({

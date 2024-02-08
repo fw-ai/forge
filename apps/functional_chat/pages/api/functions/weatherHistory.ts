@@ -6,7 +6,7 @@ class Api {
       json_schema: {
         type: 'function',
         function: {
-          name: 'weather_history',
+          name: 'weatherHistory',
           description: 'Retrieves daily historical weather records for a given location and month.',
           parameters: {
             type: 'object',

@@ -6,7 +6,7 @@ class Api {
       json_schema: {
         type: 'function',
         function: {
-          name: 'web_search',
+          name: 'webSearch',
           description: 'get information from the web',
           parameters: {
             type: 'object',

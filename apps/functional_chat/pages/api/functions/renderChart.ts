@@ -6,7 +6,7 @@ class Api {
       json_schema: {
         type: 'function',
         function: {
-          name: 'render_chart',
+          name: 'renderChart',
           description: 'Generates chart from numeric data. The chart is rendered by Chart.js, a popular open-source charting library. The tool output should be displayed as ![text](image_url) where the image url includes blob: prefix.',
           parameters: {
             type: 'object',

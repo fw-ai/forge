@@ -6,7 +6,7 @@ class Api {
       json_schema: {
         type: 'function',
         function: {
-          name: 'popular_destinations',
+          name: 'popularDestinations',
           description: 'Gets the most popular directions from a specified city. Convert tool output to full city names.',
           parameters: {
             type: 'object',
