@@ -9,10 +9,10 @@
     "node": ">=18.15.0"
   },
   "scripts": {
-    "web:dev": "next dev",
-    "web:build": "next build",
-    "web:start": "next start",
-    "web:analyze": "cross-env ANALYZE=true next build"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "analyze": "cross-env ANALYZE=true next build"
   },
   "resolutions": {
     "@opentelemetry/api": "1.4.1",

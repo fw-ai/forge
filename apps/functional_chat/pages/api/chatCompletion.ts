@@ -25,10 +25,10 @@ function createMockResponse(): MockNextApiResponse {
 
 async function fetchFunctionSpecs(endpoints: string[]) {
   const specs = await Promise.all(endpoints.map(async (func) => {
-    const module = await import(`./functions/${func}.ts`);
+    const importedModule = await import(`./functions/${func}.ts`);
     const req = createMockRequest({ action: 'spec' });
     const res = createMockResponse();
-    await module.default(req, res);
+    await importedModule.default(req, res);
     return res.data.json_schema;
   }));
 
