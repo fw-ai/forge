@@ -25,11 +25,8 @@ class Api {
   }
 
   static async call(req: NextApiRequest, res: NextApiResponse) {
-    // Access additional parameters from req.query
     const { args } = req.query;
-
     const jsonObj = JSON.parse(args as string);
-
     if (!jsonObj || typeof jsonObj !== 'object' || !('origin_iata' in jsonObj)) {
       throw new Error(`Cannot parse popular destinations arguments: ${args}`);
     }
@@ -56,12 +53,19 @@ class Api {
 
     let data = await response.json();
     if (data.data === undefined) {
-      return JSON.stringify(data, null);
+      throw new Error('Missing data in API response.');
     }
     data = data.data;
 
     // Take the top 10 entries.
     data = Object.keys(data).slice(0, 10).map(key => [key, data[key]]);
+
+    // Extract the relevant fields.
+    data = data.map((entry: any) => ({
+      destination: entry[1].destination,
+      price: entry[1].price
+      // flight: `${entry[1].airline}${entry[1].flight_number}`
+    }));
 
     res.json(data);
   }
