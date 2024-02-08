@@ -6,7 +6,7 @@ class Api {
       json_schema: {
         type: 'function',
         function: {
-          name: 'stock_quote',
+          name: 'stockQuote',
           description: 'Obtains the latest price and volume information for a given stock ticker symbol.',
           parameters: {
             type: 'object',

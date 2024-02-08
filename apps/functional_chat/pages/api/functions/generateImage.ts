@@ -6,7 +6,7 @@ class Api {
       json_schema: {
         type: 'function',
         function: {
-          name: 'generate_image',
+          name: 'generateImage',
           description: 'Generates an image from a text description. The tool output should be displayed as ![text](image_url) where the image url includes blob: prefix.',
           parameters: {
             type: 'object',

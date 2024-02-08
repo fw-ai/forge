@@ -60,30 +60,14 @@ async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> 
   }
 
   let content: string;
-  switch (func.name.toLowerCase()) {
-    case 'web_search':
-      content = await callFunction('webSearch', func.arguments);
-      break;
-    case 'stock_quote':
-      content = await callFunction('stockQuote', func.arguments);
-      break;
-    case 'render_chart':
-      content = await generateImage('renderChart', func.arguments);
-      break;
-    case 'generate_image':
-      content = await generateImage('generateImage', func.arguments);
-      break;
-    case 'popular_destinations':
-      content = await callFunction('popularDestinations', func.arguments);
-      break;
-    case 'weather_history':
-      content = await callFunction('weatherHistory', func.arguments);
-      break;
-    case 'flight_prices':
-      content = await callFunction('flightPrices', func.arguments);
+  switch (func.name) {
+    case 'renderChart':
+    case 'generateImage':
+      content = await generateImage(func.name, func.arguments);
       break;
     default:
-      throw new Error(`Unsupported function: $ { func.name }`);
+      content = await callFunction(func.name, func.arguments);
+      break;
   }
 
   return {
