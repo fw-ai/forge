@@ -11,7 +11,7 @@ Either edit `.env` or create a new file called `.env.local` (recommended) with a
 
 Run the server in dev mode:
 ```
-npm run web:dev
+npm run dev
 ```
 
 ## Capabilities
