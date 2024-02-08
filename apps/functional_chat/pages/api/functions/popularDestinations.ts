@@ -34,8 +34,8 @@ class Api {
       throw new Error(`Cannot parse popular destinations arguments: ${args}`);
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_RAPIDAPI_KEY || 'set the key in .env or .env.local';
-    const accessToken = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
+    const apiKey = process.env.RAPIDAPI_KEY || 'set the key in .env or .env.local';
+    const accessToken = process.env.TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
 
     const url = new URL('https://travelpayouts-travelpayouts-flight-data-v1.p.rapidapi.com/v1/city-directions');
     url.searchParams.append('origin', jsonObj.origin_iata);

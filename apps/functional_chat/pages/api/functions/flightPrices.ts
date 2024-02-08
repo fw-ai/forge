@@ -60,7 +60,7 @@ class Api {
 
     const jsonObj = JSON.parse(args as string);
 
-    const apiKey = process.env.NEXT_PUBLIC_TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
+    const apiKey = process.env.TRAVELPAYOUTS_KEY || 'set the key in .env or .env.local';
     const url = new URL('https://api.travelpayouts.com/aviasales/v3/prices_for_dates');
     if (jsonObj.origin !== undefined) {
       url.searchParams.append('origin', jsonObj.origin);

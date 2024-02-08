@@ -36,7 +36,7 @@ class Api {
     }
     const query = jsonObj.query;
 
-    const apiKey = process.env.NEXT_PUBLIC_BING_SEARCH_KEY || 'set the key in .env or .env.local';
+    const apiKey = process.env.BING_SEARCH_KEY || 'set the key in .env or .env.local';
     const endpoint = 'https://api.bing.microsoft.com/v7.0/search';
     const resultsCount = 5; // Number of results to return
 

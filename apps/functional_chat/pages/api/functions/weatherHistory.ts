@@ -37,7 +37,7 @@ class Api {
       throw new Error(`Cannot parse weather history arguments: ${args}`);
     }
 
-    const apiKey = process.env.NEXT_PUBLIC_VISUALCROSSING_KEY || 'set the key in .env or .env.local';
+    const apiKey = process.env.VISUALCROSSING_KEY || 'set the key in .env or .env.local';
 
     const url = new URL('https://weather.visualcrossing.com/VisualCrossingWebServices/rest/services/weatherdata/history');
 
