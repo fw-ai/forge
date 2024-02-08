@@ -7,7 +7,7 @@ class Api {
         type: 'function',
         function: {
           name: 'weatherHistory',
-          description: 'Retrieves daily historical weather records for a given location and month.',
+          description: 'Retrieves daily historical weather records for a given location and month. The temperature unit is Fahrenheit.',
           parameters: {
             type: 'object',
             properties: {
