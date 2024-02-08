@@ -36,7 +36,7 @@ class Api {
     }
     const symbol = jsonObj.symbol;
 
-    const apiKey = process.env.NEXT_PUBLIC_ALPHAVANTAGE_KEY;
+    const apiKey = process.env.ALPHAVANTAGE_KEY;
     const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${symbol}&apikey=${apiKey}`;
 
     const response = await fetch(url);

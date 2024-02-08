@@ -48,8 +48,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const { requestBody, messages } = req.body as ChatRequestBody;
 
-  const modelName = process.env.NEXT_PUBLIC_FIREWORKS_CHAT_MODEL;
-  const apiKey = process.env.NEXT_PUBLIC_FIREWORKS_API_KEY;
+  const modelName = process.env.FIREWORKS_CHAT_MODEL;
+  const apiKey = process.env.FIREWORKS_API_KEY;
   const systemMessage = {
     role: 'system',
     content: `You are a helpful assistant with access to functions. Use them if needed. If a function is not available, do not make one up. The date and time is ${new Date()}.`

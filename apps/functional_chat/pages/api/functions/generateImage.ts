@@ -43,8 +43,8 @@ class Api {
     const negativePrompt: string | undefined = jsonObj.negative_prompt;
 
     const baseApiUrl = 'https://api.fireworks.ai/inference/v1/image_generation';
-    const modelId = process.env.NEXT_PUBLIC_FIREWORKS_IMAGE_GEN_MODEL;
-    const apiKey = process.env.NEXT_PUBLIC_FIREWORKS_API_KEY;
+    const modelId = process.env.FIREWORKS_IMAGE_GEN_MODEL;
+    const apiKey = process.env.FIREWORKS_API_KEY;
     const response = await fetch(`${baseApiUrl}/${modelId}`, {
       method: 'POST',
       headers: {
