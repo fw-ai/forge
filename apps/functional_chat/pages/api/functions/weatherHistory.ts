@@ -7,12 +7,12 @@ class Api {
         type: 'function',
         function: {
           name: 'weatherHistory',
-          description: 'Retrieves daily historical weather records for a given location and month. The temperature unit is Fahrenheit.',
+          description: 'Retrieves daily historical weather records for a given location and month. The temperature unit is Fahrenheit. When processing tool output, do not include links.',
           parameters: {
             type: 'object',
             properties: {
               locations: {
-                description: 'Location to get the weather for (e.g., city or country).',
+                description: 'Location to get the weather for (must be a full name, no abbreviations).',
                 type: 'string'
               },
               month: {
