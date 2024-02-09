@@ -31,6 +31,10 @@ class Api {
                     items: {
                       type: 'object',
                       properties: {
+                        label: {
+                          type: 'string',
+                          description: 'the label for the dataset which appears in the legend and tooltips'
+                        },
                         data: {
                           type: 'array',
                           items: {
