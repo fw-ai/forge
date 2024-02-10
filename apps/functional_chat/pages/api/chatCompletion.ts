@@ -93,7 +93,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!response.ok) {
     // Handle non-OK responses from the external API
-    return res.status(response.status).json({ error: true, status: response.statusText });
+    const errorBody = await response.json();
+    return res.status(response.status).json({ error: true, status: response.statusText, details: errorBody });
   }
 
   if (!response.body) {

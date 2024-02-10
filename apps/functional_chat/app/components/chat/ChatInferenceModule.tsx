@@ -130,7 +130,7 @@ export function ChatInferenceModule() {
       const response = await chatCompletion(requestBody, updatedMessages);
 
       if (response.error === true) {
-        setRequestStatus(response.status);
+        setRequestStatus(JSON.stringify(response));
         setIsLoading(false);
         updatedMessages.pop();
         setRequestBody({ field: 'messages', value: [...updatedMessages] });
@@ -156,7 +156,7 @@ export function ChatInferenceModule() {
         updatedMessages.push(toolMessage);
         const response = await chatCompletion(requestBody, updatedMessages);
         if (response.error === true) {
-          setRequestStatus(response.status);
+          setRequestStatus(JSON.stringify(response));
           setIsLoading(false);
           updatedMessages.pop();
           setRequestBody({ field: 'messages', value: [...updatedMessages] });
@@ -196,13 +196,9 @@ export function ChatInferenceModule() {
             <ChatMessages messages={requestBody.messages} isLoading={isLoading}>
               {requestStatus ? (
                 <Alert color="error" className="mr-4">
-                  <AlertTitle>Error Generating response</AlertTitle>
+                  <AlertTitle>Error Generating Response</AlertTitle>
                   <AlertDescription>
-                    {requestStatus === 'over_quota'
-                      ? 'You have exceeded your max requests per hour, please try again later.'
-                      : requestStatus === 'unknown_error'
-                        ? 'There was an error generating a response, please try again later.'
-                        : `API Error: ${requestStatus}`}
+                    {`API Error: ${requestStatus}`}
                   </AlertDescription>
                 </Alert>
               ) : null}
