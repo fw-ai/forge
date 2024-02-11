@@ -28,3 +28,11 @@ The demo app includes the following functions (new functions are easy to add - s
 ## Adding a new function
 
 TODO(pawel): add instructions after code refactoring.
+
+## Troubleshooting
+
+If you get errors related to Node.js version, install and activate the latest node distribution.
+```
+nvm install node
+nvm use node
+```

@@ -7,12 +7,6 @@ import React, {
 } from 'react';
 
 import {
-  Prism,
-  SyntaxHighlighterProps,
-} from 'react-syntax-highlighter';
-import { coldarkDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
-
-import {
   CheckIcon,
   CopyIcon,
   EyeClosedIcon,
@@ -22,8 +16,8 @@ import {
 import { Button } from '../ui/button';
 import { useCopyToClipboard } from './use-copy-to-clipboard';
 
-// TODO: Remove this when @type/react-syntax-highlighter is updated
-const SyntaxHighlighter = Prism as unknown as FC<SyntaxHighlighterProps>;
+import SyntaxHighlighter from 'react-syntax-highlighter';
+import { atelierDuneLight } from 'react-syntax-highlighter/dist/esm/styles/hljs';
 
 interface Props {
   language: string;
@@ -87,7 +81,7 @@ const CodeBlock: FC<Props> = memo(({ language, value, copyValue, apiKeyToHide, h
   };
 
   return (
-    <div className="codeblock relative w-full h-full bg-zinc-950 font-sans rounded-lg">
+    <div className="codeblock relative w-full h-full bg-zinc-100 font-sans rounded-lg">
       {header ? (
         <div className="flex w-full items-center justify-between bg-zinc-800 px-4 py-1 pr-4 text-zinc-100">
           <span className="text-xs lowercase">{language}</span>
@@ -107,7 +101,7 @@ const CodeBlock: FC<Props> = memo(({ language, value, copyValue, apiKeyToHide, h
       ) : null}
       <SyntaxHighlighter
         language={language}
-        style={coldarkDark}
+        style={atelierDuneLight}
         PreTag="div"
         showLineNumbers={showLineNumbers}
         wrapLongLines

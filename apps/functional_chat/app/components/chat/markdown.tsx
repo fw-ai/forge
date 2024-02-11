@@ -19,21 +19,11 @@ export default function Markdown({ content }: { content: string }) {
         p({ children }: { children: React.ReactNode }) {
           return <p className="mb-2 last:mb-0 text-wrap">{children}</p>;
         },
-        a({ href, children, title, ...props }) {
-          console.log('DEBUG: href: ' + href + ' title: ' + title + ' props: ' + props);
-          // Check if the href is a URL from quickchart.io
-          if (href && href.startsWith('https://quickchart.io')) {
-            return <img src={href} alt={title || 'QuickChart'} title={title} />;
-          }
-          // Default link rendering
-          return <a href={href} {...props}>{children}</a>;
-        },
         code({ inline, className, children, ...props }) {
           if (children && Array.isArray(children) && children.length > 0) {
             if (children[0] === '▍') {
               return <span className="mt-1 animate-pulse cursor-default">▍</span>;
             }
-
             children[0] = (children[0] as string).replace('`▍`', '▍');
           }
           if (inline) {
@@ -49,6 +39,7 @@ export default function Markdown({ content }: { content: string }) {
             <CodeBlock
               key={Math.random()}
               showLineNumbers={false}
+              header={false}
               language={match?.[1] || ''}
               // eslint-disable-next-line require-unicode-regexp
               value={String(children).replace(/\n$/, '')}

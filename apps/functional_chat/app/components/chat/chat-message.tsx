@@ -4,13 +4,41 @@ import { cn } from '~/lib/utils';
 import { CheckIcon, CopyIcon } from '@radix-ui/react-icons';
 
 import { Button } from '../ui/button';
-import { Card } from '../ui/card';
+import { v4 as uuidv4 } from 'uuid';
 import ChatAvatar from './chat-avatar';
 import Markdown from './markdown';
 import { useCopyToClipboard } from './use-copy-to-clipboard';
+import Toggle from './toggle';
+
+function stringify(obj: any, indentLevel: number = 0): string {
+  const indent = ' '.repeat(indentLevel * 4); // 4 spaces per indent level
+  const subIndent = ' '.repeat((indentLevel + 1) * 4);
+
+  if (Array.isArray(obj)) {
+    return '[\n' + obj.map(item => subIndent + stringify(item, indentLevel + 1)).join(',\n') + '\n' + indent + ']';
+  } else if (typeof obj === 'object' && obj !== null) {
+    return '{\n' + Object.entries(obj).map(([key, value]) =>
+      `${subIndent}${key}: ${stringify(value, indentLevel + 1)}`).join(',\n') + '\n' + indent + '}';
+  } else {
+    return JSON.stringify(obj);
+  }
+}
 
 export default function ChatMessage(chatMessage: ChatMessageInterface) {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
+  const functionCall = chatMessage.metadata?.functionCall;
+  var functionCallContent;
+  if (functionCall) {
+    type FunctionCall = {
+      name: string;
+      arguments: { [key: string]: any };
+    };
+    const parsed: FunctionCall = {
+      name: functionCall.name,
+      arguments: JSON.parse(functionCall.arguments)
+    };
+    functionCallContent = '```javascript\n' + stringify(parsed) + '\n```';
+  }
   return (
     <div
       className={cn(
@@ -22,7 +50,7 @@ export default function ChatMessage(chatMessage: ChatMessageInterface) {
       <ChatAvatar role={chatMessage.role} />
       <div className="group flex flex-1 justify-between gap-2 ">
         <div className="flex-1">
-          {chatMessage.role === 'assistant' && chatMessage.content.length < 2 ? (
+          {chatMessage.role === 'assistant' && chatMessage.metadata?.loading === true ? (
             <div className="flex justify-start items-start mt-1">
               <div className="flex space-x-1 h-6 ">
                 <span className="typing-dots animate-loader"></span>
@@ -31,40 +59,18 @@ export default function ChatMessage(chatMessage: ChatMessageInterface) {
               </div>
             </div>
           ) : null}
-          {typeof chatMessage.content === 'string' ? (
-            <Markdown
-              key={chatMessage.id}
-              content={chatMessage.role === 'user' ? chatMessage.content.replace(/\n/giu, '\n\n') : chatMessage.content}
-            />
-          ) : (
-            chatMessage.content.map((content, index) => {
-              if (content.type === 'text') {
-                return (
-                  <Markdown
-                    key={index}
-                    content={
-                      chatMessage.role === 'user'
-                        ? // input
-                          (content.text || '').replace(/\n/giu, '\n\n')
-                        : content.text || ''
-                    }
-                  />
-                );
-              }
-              return (
-                <Card
-                  key={index}
-                  className="p2 overflow-hidden flex max-sm:justify-center mt-2 w-30 h-30 max-w-[100vw-20vw] md:max-w-lg max-h-[100vw-20vw] md:max-h-lg"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={content.image_url?.url}
-                    className="max-w-[100vw-20vw] md:max-w-lg max-h-[100vw-20vw] md:max-h-lg"
-                  />
-                </Card>
-              );
-            })
+          {functionCallContent && (
+            <Toggle showText="show function calls" hideText="hide function calls">
+              <Markdown
+                key={uuidv4()}
+                content={functionCallContent}
+              />
+            </Toggle>
           )}
+          <Markdown
+            key={chatMessage.id}
+            content={chatMessage.content}
+          />
           {chatMessage?.metadata?.averageTokenTime ? (
             <div className="flex justify-start md:justify-end items-center mt-1">
               <span className="text-xs text-zinc-400">
