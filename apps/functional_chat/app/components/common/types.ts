@@ -4,16 +4,6 @@ export interface Completion {
   numTokens: number;
 }
 
-export interface ChatMessageContentImageURL {
-  url: string;
-}
-
-export interface ChatMessageContent {
-  type: string;
-  text?: string;
-  image_url?: ChatMessageContentImageURL;
-}
-
 export interface FunctionCall {
   name: string;
   arguments: string;
@@ -28,7 +18,7 @@ export interface ToolCall {
 export interface ChatMessage {
   id: string;
   role: string;
-  content: string | ChatMessageContent[];
+  content: string;
   toolCallId?: string;
   toolCalls?: ToolCall[];
   metadata?: {
@@ -38,6 +28,9 @@ export interface ChatMessage {
     perplexity?: any;
     used?: boolean;
     hide?: boolean;
+    loading?: boolean;
+    functionCall?: FunctionCall;
+    functionResponse?: string;
   };
 }
 

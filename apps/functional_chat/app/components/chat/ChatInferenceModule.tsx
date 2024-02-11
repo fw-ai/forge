@@ -5,7 +5,7 @@ import { TrashIcon } from '@radix-ui/react-icons';
 import { useReducer, useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatInput, ChatMessages } from '.';
-import { ChatMessage, ChatMessageContent, ChatState } from '../common/types';
+import { ChatMessage, ChatState } from '../common/types';
 import { AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -80,7 +80,7 @@ async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> 
       firstTokenTime: 0,
       averageTokenTime: 0,
       perplexity: null,
-      hide: true,
+      hide: true
     },
   }
 }
@@ -118,14 +118,17 @@ export function ChatInferenceModule() {
       setRequestStatus(null);
       setIsLoading(true);
 
-      const content: string | ChatMessageContent[] = text;
+      const content: string = text;
       const newMessage = {
         id: uuidv4(),
         content: content,
         role: 'user', // model.conversationConfig?.roleNames.user ?? '',
       };
       updatedMessages.push(newMessage);
-      setRequestBody({ field: 'messages', value: [...updatedMessages, { id: uuidv4(), content: '', role: 'assistant' }] });
+      setRequestBody({
+        field: 'messages',
+        value: [...updatedMessages, { id: uuidv4(), content: '', role: 'assistant', metadata: { loading: true } }]
+      });
 
       const response = await chatCompletion(requestBody, updatedMessages);
 
@@ -148,7 +151,7 @@ export function ChatInferenceModule() {
             ...lastMessage,
             metadata: {
               ...lastMessage.metadata,
-              hide: true
+              hide: true,
             }
           };
           updatedMessages.push(lastMessage);
@@ -162,8 +165,26 @@ export function ChatInferenceModule() {
           setRequestBody({ field: 'messages', value: [...updatedMessages] });
           return;
         }
-        const assistantMessage = response as ChatMessage;
-        updatedMessages.push(assistantMessage);
+        var finalAssistantMessage = response as ChatMessage;
+
+        var functionCall;
+        if (assistantMessage.toolCalls && assistantMessage.toolCalls.length > 0) {
+          functionCall = assistantMessage.toolCalls[0]?.function;
+        }
+        var functionResponse;
+        if (toolMessage) {
+          functionResponse = toolMessage.content;
+        }
+        finalAssistantMessage = {
+          ...finalAssistantMessage,
+          metadata: {
+            ...finalAssistantMessage.metadata,
+            functionCall: functionCall,
+            functionResponse: functionResponse,
+          }
+        };
+
+        updatedMessages.push(finalAssistantMessage);
       }
       setRequestBody({ field: 'messages', value: [...updatedMessages] });
 
