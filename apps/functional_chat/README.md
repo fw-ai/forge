@@ -51,9 +51,3 @@ nvm alias default stable
 ```bash
 node -v
 ```
-
-If you get errors related to Node.js version, install and activate the latest node distribution.
-```bash
-nvm install node
-nvm use node
-```
