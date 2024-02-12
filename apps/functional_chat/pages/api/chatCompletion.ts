@@ -36,7 +36,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     temperature: 0,
     prompt_cache_max_len: 0,
     // logprobs: 1,
-    // raw_output: true,
+    raw_output: true,
     messages: [
       systemMessage,
       ...messages.map((m) => ({
@@ -71,6 +71,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const data = await response.json();
   console.log(`DEBUG: chat completion response: ${JSON.stringify(data, null, 2)}`);
+  console.log(`DEBUG: raw_output: ${JSON.stringify(data['choices'][0]['raw_output']['prompt_fragments'][0])} model: ${modelName}`)
 
   const toolCalls = data.choices[0].message.tool_calls;
   res.json({
