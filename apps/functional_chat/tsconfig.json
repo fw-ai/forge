@@ -3,12 +3,14 @@
   "include": [
     "app/**/*.ts",
     "app/**/*.tsx",
+    "pages/**/*.ts",
+    "pages/**/*.tsx",
     ".next/types/**/*.ts",
     "next.config.js",
     "app/(routes)/layout.tsx",
     "app/(routes)/page.tsx",
     "**/*.ts",
-    "**/*.tsx"
+    "**/*.tsx",
   ],
   "compilerOptions": {
     "plugins": [

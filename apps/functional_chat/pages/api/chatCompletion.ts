@@ -1,39 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatMessage, ChatState } from '~/components/common/types';
-
-function createMockRequest(queryParams: Record<string, any> = {}): NextApiRequest {
-  return {
-    query: queryParams
-  } as NextApiRequest;
-}
-
-interface MockNextApiResponse extends NextApiResponse {
-  data?: any;
-}
-
-function createMockResponse(): MockNextApiResponse {
-  const res: Partial<MockNextApiResponse> = {};
-
-  res.json = (data: any) => {
-    res.data = data;
-    return res as MockNextApiResponse;
-  };
-
-  return res as MockNextApiResponse;
-}
-
-async function fetchFunctionSpecs(endpoints: string[]) {
-  const specs = await Promise.all(endpoints.map(async (func) => {
-    const importedModule = await import(`./functions/${func}.ts`);
-    const req = createMockRequest({ action: 'spec' });
-    const res = createMockResponse();
-    await importedModule.default(req, res);
-    return res.data.json_schema;
-  }));
-
-  return specs;
-}
+import { fetchFunctionSpecs } from './functionSpecs';
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== 'POST') {

@@ -13,9 +13,8 @@ export default function Toggle(props: {
 
   return (
     <div>
-      <div className="flex justify-end"> {/* Align only the link to the right */}
+      <div className="flex justify-end">
         <a href="#" onClick={toggleVisibility} className="text-sky-600 hover:text-sky-700 flex items-center text-xs">
-          {/*<span className={`mr-2 transform ${isVisible ? 'rotate-180' : ''}`}>▼</span>*/}
           {isVisible ? props.hideText : props.showText}
         </a>
       </div>
