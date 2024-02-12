@@ -2,15 +2,17 @@
 
 ## Quick start
 
+If you need to install Node.js, follow [these instructions](https://github.com/fw-ai/forge/tree/main/apps/functional_chat#configuring-the-environment).
+
 Install the dependencies:
-```
+```bash
 npm install
 ```
 
 Either edit `.env` or create a new file called `.env.local` (recommended) with api keys to the services you want to call.
 
 Run the server in dev mode:
-```
+```bash
 npm run dev
 ```
 
@@ -29,10 +31,29 @@ The demo app includes the following functions (new functions are easy to add - s
 
 TODO(pawel): add instructions after code refactoring.
 
-## Troubleshooting
+## Configuring the environment
+
+If you are starting from scratch, here are the steps to follow to set up a Node.js on your host:
+
+1. [Install](https://github.com/nvm-sh/nvm#installing-and-updating) Node Version Manager (nvm)
+
+2. Install the latest Node.js:
+```bash
+nvm install stable
+```
+
+3. Optional: to make this version your default version, run the following:
+```bash
+nvm alias default stable
+```
+
+4. Optional: To check what version of Node.js that you're running, run the following:
+```bash
+node -v
+```
 
 If you get errors related to Node.js version, install and activate the latest node distribution.
-```
+```bash
 nvm install node
 nvm use node
 ```
