@@ -9,20 +9,7 @@ import ChatAvatar from './chat-avatar';
 import Markdown from './markdown';
 import { useCopyToClipboard } from './use-copy-to-clipboard';
 import Toggle from './toggle';
-
-function stringify(obj: any, indentLevel: number = 0): string {
-  const indent = ' '.repeat(indentLevel * 4); // 4 spaces per indent level
-  const subIndent = ' '.repeat((indentLevel + 1) * 4);
-
-  if (Array.isArray(obj)) {
-    return '[\n' + obj.map(item => subIndent + stringify(item, indentLevel + 1)).join(',\n') + '\n' + indent + ']';
-  } else if (typeof obj === 'object' && obj !== null) {
-    return '{\n' + Object.entries(obj).map(([key, value]) =>
-      `${subIndent}${key}: ${stringify(value, indentLevel + 1)}`).join(',\n') + '\n' + indent + '}';
-  } else {
-    return JSON.stringify(obj);
-  }
-}
+import { stringifyObject } from '../common/utils';
 
 export default function ChatMessage(chatMessage: ChatMessageInterface) {
   const { isCopied, copyToClipboard } = useCopyToClipboard({ timeout: 2000 });
@@ -37,7 +24,7 @@ export default function ChatMessage(chatMessage: ChatMessageInterface) {
       name: functionCall.name,
       arguments: JSON.parse(functionCall.arguments)
     };
-    functionCallContent = '```javascript\n' + stringify(parsed) + '\n```';
+    functionCallContent = '```javascript\n' + stringifyObject(parsed) + '\n```';
   }
   return (
     <div

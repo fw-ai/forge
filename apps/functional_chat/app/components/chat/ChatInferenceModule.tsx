@@ -2,14 +2,17 @@
 'use client';
 import { Alert, AlertTitle } from '@mui/material';
 import { TrashIcon } from '@radix-ui/react-icons';
-import { useReducer, useState } from 'react';
+import { useReducer, useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatInput, ChatMessages } from '.';
 import { ChatMessage, ChatState } from '../common/types';
+import { stringifyObject } from '../common/utils';
 import { AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { ChatScrollAnchor } from './ChatScrollAnchor';
+import Toggle from './toggle';
+import Markdown from './markdown';
 
 type ChatAction<Type extends keyof ChatState> = { field: Type; value: ChatState[Type] };
 
@@ -33,6 +36,15 @@ async function callFunction(name: string, args: string): Promise<any> {
   }
   const data = await response.json();
   return JSON.stringify(data);
+}
+
+async function fetchFunctionSpecs(): Promise<any> {
+  const response = await fetch("/api/functionSpecs");
+  if (!response.ok) {
+    const errorDetails = await response.text();
+    throw new Error(`Failed fetching function specs: ${response.status} ${response.statusText} - ${errorDetails}`);
+  }
+  return await response.json();
 }
 
 async function generateImage(name: string, args: string): Promise<string> {
@@ -61,6 +73,7 @@ async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> 
 
   let content: string;
   switch (func.name) {
+    // TODO: figure out a better way to handle this
     case 'renderChart':
     case 'generateImage':
       content = await generateImage(func.name, func.arguments);
@@ -86,6 +99,7 @@ async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> 
 }
 
 export function ChatInferenceModule() {
+  const [functionSpecs, setFunctionSpecs] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
   const [requestBody, setRequestBody] = useReducer(
@@ -195,23 +209,34 @@ export function ChatInferenceModule() {
     }
     setIsLoading(false);
   };
+
+  useEffect(() => {
+    fetch('/api/functionSpecs')
+      .then(response => response.json())
+      .then(data => setFunctionSpecs(data))
+      .catch(error => console.error('Error fetching function specs:', error));
+  }, []); // Empty dependency array to run only once on mount
+
   return (
-    <div className="md:flex md:space-x-6 sm:mt-4">
+    <div className="md:flex md:space-x-6 sm:mt-4 overflow-y-auto">
       {/*<div className="md:w-2/3">*/}
       <div className="md:w-full">
         <Card className="max-sm:rounded-none flex h-[calc(100dvh-1.5rem)] sm:h-[calc(100dvh-2rem)] max-sm:w-screen overflow-hidden py-0 ">
           <div className="pl-4 pt-2 md:pt4 pb-4 flex w-full flex-col flex-1">
-            <div className="flex flex-row justify-between">
-              {requestBody.messages.length > 0 ? (
-                <Button
-                  className="lg:mr-4 md:border md:shadow-sm"
-                  variant="ghost"
-                  onClick={() => setRequestBody({ field: 'messages', value: [] })}
-                >
-                  {/* <span className="hidden md:block">Clear Chat</span> */}
-                  <TrashIcon className="w-5 h-5 text-zinc-400" />
-                </Button>
-              ) : null}
+            <div className="flex flex-row justify-between overflow-y-auto mr-4">
+              <Button
+                className="lg:mr-4 md:border md:shadow-sm"
+                variant="ghost"
+                onClick={() => setRequestBody({ field: 'messages', value: [] })}
+              >
+                <TrashIcon className="w-5 h-5 text-zinc-400" />
+              </Button>
+              <Toggle showText="show available functions" hideText="hide available functions">
+                <Markdown
+                  key={uuidv4()}
+                  content={'```javascript\n' + stringifyObject(functionSpecs) + '\n```'}
+                />
+              </Toggle>
             </div>
             <div className="border-b pt-2 border-zinc-200 w-full h-1 mr-2" />
             <ChatMessages messages={requestBody.messages} isLoading={isLoading}>
