@@ -29,7 +29,11 @@ The demo app includes the following functions (new functions are easy to add - s
 
 ## Adding a new function
 
-TODO(pawel): add instructions after code refactoring.
+To add a new function to the chat follow these steps:
+1. Create a file under [functions](https://github.com/fw-ai/forge/tree/main/apps/functional_chat/pages/api/functions) directory. By convention, the file name follows the function name,
+2. Implement a `handler` that supports `spec` and `call` query actions. `spec` should return the description of the function parameters in [`json_schema`](https://json-schema.org/) format. `call` performs the function call - often times invoking an external API - and returns the responses in a descriptive format (typically JSON). There are several function spec and call [examples](https://github.com/fw-ai/forge/tree/main/apps/functional_chat/pages/api/functions) that you can copy and modify based on your needs.
+3. Include the name of the newly added function in the [`ACTIVE_FUNCTIONS`](https://github.com/fw-ai/forge/blob/main/apps/functional_chat/.env) environment variable.
+4. Redeploy your app and have fun!
 
 ## Configuring the environment
 
