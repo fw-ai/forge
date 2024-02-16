@@ -7,7 +7,7 @@ class Api {
         type: 'function',
         function: {
           name: 'newsSearch',
-          description: 'get news articles related to a query',
+          description: 'get recent news articles related to a query',
           parameters: {
             type: 'object',
             properties: {
@@ -40,7 +40,7 @@ class Api {
     const endpoint = 'https://api.bing.microsoft.com/v7.0/news/search';
     const resultsCount = 5; // Number of results to return
 
-    const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&count=${resultsCount}`, {
+    const response = await fetch(`${endpoint}?q=${encodeURIComponent(query)}&count=${resultsCount}&sortBy=date&mkt=en-us`, {
       headers: {
         'Ocp-Apim-Subscription-Key': apiKey,
       },
@@ -56,7 +56,6 @@ class Api {
     const data = {
       newsArticles: {
         value: fullResponse.value.map((item: any) => ({
-          name: item.name,
           description: item.description,
         }))
       }
