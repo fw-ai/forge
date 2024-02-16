@@ -25,7 +25,7 @@ A simple chat with function calling. Functions can perform tasks that typically 
 The demo app includes the following functions (new functions are easy to add - see the next section):
 - image generation with an SDXL model,
 - getting stock quotes curtesy of [alphavantage](https://www.alphavantage.co/),
-- charting datasets with chart.js curtesy of (quickchart)[https://quickchart.io].
+- charting datasets with chart.js curtesy of [quickchart](https://quickchart.io).
 
 ## Adding a new function
 
