@@ -13,6 +13,7 @@ import { Card } from '../ui/card';
 import { ChatScrollAnchor } from './ChatScrollAnchor';
 import Toggle from './toggle';
 import Markdown from './markdown';
+import { EmptyLLMOutput } from './empty-llm-state';
 
 type ChatAction<Type extends keyof ChatState> = { field: Type; value: ChatState[Type] };
 
@@ -239,6 +240,11 @@ export function ChatInferenceModule() {
               </Toggle>
             </div>
             <div className="border-b pt-2 border-zinc-200 w-full h-1 mr-2" />
+            {requestBody.messages.length === 0 && (
+              <div className="mt-8 md:pt-16 mx-auto">
+                <EmptyLLMOutput />
+              </div>
+            )}
             <ChatMessages messages={requestBody.messages} isLoading={isLoading}>
               {requestStatus ? (
                 <Alert color="error" className="mr-4">
