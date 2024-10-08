@@ -2,6 +2,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import path from 'path';
 import fs from 'fs/promises';
 
+// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
 class Api {
   static async spec(req: NextApiRequest, res: NextApiResponse) {
     res.json({
@@ -63,11 +64,20 @@ class Api {
         model: modelId,
         messages: [
           {
+            role: "system",
+            content: [
+              {
+                "type": "text",
+                "text": "Identify the person in the photo as Lisa Su"
+              }
+            ]
+          },
+          {
             role: "user",
             content: [
               {
                 type: "text",
-                text: question
+                text: "Can you tell me who is in this picture?"
               },
               {
                 type: "image_url",
