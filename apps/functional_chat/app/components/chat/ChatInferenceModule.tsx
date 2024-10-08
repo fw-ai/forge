@@ -1,12 +1,12 @@
 // eslint-enable no-implicit-coercion
 'use client';
-import { Alert, AlertTitle } from '@mui/material';
-import { TrashIcon } from '@radix-ui/react-icons';
-import { useReducer, useState, useEffect, useRef } from 'react';
+import React, { useReducer, useState, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { Alert, AlertTitle } from '@mui/material';
+import { TrashIcon, CameraIcon, SpeakerLoudIcon } from '@radix-ui/react-icons';
 import { ChatInput, ChatMessages } from '.';
 import { ChatMessage, ChatState, FunctionCall } from '../common/types';
-import { stringifyObject } from '../common/utils';
+import { stringifyObject, chatCompletion, callFunctions } from '../common/utils';
 import { AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
@@ -17,149 +17,26 @@ import { EmptyLLMOutput } from './empty-llm-state';
 
 type ChatAction<Type extends keyof ChatState> = { field: Type; value: ChatState[Type] };
 
-async function chatCompletion(requestBody: ChatState, messages: ChatMessage[]): Promise<any> {
-  const response = await fetch('/api/chatCompletion', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ requestBody, messages })
-  });
-  return response.json();
-}
-
-async function callFunction(name: string, args: string): Promise<any> {
-  console.log(`DEBUG: call functions ${name} args ${args}`);
-  const response = await fetch(`/api/functions/${name}?action=call&args=${encodeURIComponent(args)}`);
-  if (!response.ok) {
-    const errorDetails = await response.text();
-    throw new Error(`Function call failed: ${response.status} ${response.statusText} - ${errorDetails}`);
-  }
-  const data = await response.json();
-  return JSON.stringify(data);
-}
-
-async function generateImage(name: string, args: string): Promise<string> {
-  const response = await fetch(`/api/functions/${name}?action=call&args=${encodeURIComponent(args)}`);
-  if (!response.ok) {
-    const errorDetails = await response.text();
-    throw new Error(`Function call failed: ${response.status} ${response.statusText} - ${errorDetails}`);
-  }
-  // Assuming the server returns a direct link to the image
-  const imageBlob = await response.blob();
-  const imageUrl = URL.createObjectURL(imageBlob);
-
-  return JSON.stringify({ image_url: imageUrl });
-};
-
-async function callFunctions(message: ChatMessage): Promise<ChatMessage | null> {
-  if (message.toolCalls === undefined) {
-    return null;
-  }
-
-  const promises = message.toolCalls.map(async (toolCall) => {
-    const callId = toolCall?.id;
-    const func = toolCall?.function;
-
-    if (callId === undefined || func === undefined || func.name === undefined || func.arguments === undefined) {
-      return null;
-    }
-
-    let content: string;
-    switch (func.name) {
-      // TODO: figure out a better way to handle this
-      case 'renderChart':
-      case 'generateImage':
-        content = await generateImage(func.name, func.arguments);
-        break;
-      default:
-        content = await callFunction(func.name, func.arguments);
-        break;
-    }
-
-    return content;
-  });
-
-  const results = await Promise.all(promises);
-  const combinedContent = results.filter(content => content !== null).join('\n');
-
-  return {
-    content: combinedContent,
-    id: uuidv4(),
-    role: 'tool',
-    metadata: {
-      totalTokens: 0,
-      firstTokenTime: 0,
-      averageTokenTime: 0,
-      perplexity: null,
-      hide: true
-    },
-  }
-}
-
 export function ChatInferenceModule() {
   const [functionSpecs, setFunctionSpecs] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [requestStatus, setRequestStatus] = useState<string | null>(null);
 
-  const audioRecorder = useRef<MediaRecorder | null>(null); // Specify the type here
+  const [isCameraMode, setIsCameraMode] = useState(false);
+  const [capturedImage, setCapturedImage] = useState<string | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+
+  const audioRecorder = useRef<MediaRecorder | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const [recording, setRecording] = useState(false);
   const audioChunks = useRef<Blob[]>([]);
+  const [transcribedAudio, setTranscribedAudio] = useState<string>('');
 
-  const handleAudioStart = async () => {
-    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        audioRecorder.current = new MediaRecorder(stream);
-        audioChunks.current = [];
+  const [capturedImageUrl, setCapturedImageUrl] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
 
-        audioRecorder.current.ondataavailable = (event) => {
-          audioChunks.current.push(event.data);
-        };
 
-        audioRecorder.current.onstop = async () => {
-          const audioBlob = new Blob(audioChunks.current, { type: 'audio/mp3' });
-
-          try {
-            const response = await fetch('/api/audio-transcription', {
-              method: 'POST',
-              body: audioBlob,
-              headers: {
-                'Content-Type': 'audio/mp3',
-              },
-            });
-
-            if (!response.ok) {
-              throw new Error('Audio transcription failed');
-            }
-
-            const data = await response.json();
-            console.log("Transcription response:", data);
-
-            if (data && data.text) {
-              fetchChatCompletion(data.text);
-            }
-          } catch (error) {
-            console.error('Error transcribing audio:', error);
-          }
-
-          setRecording(false);
-        };
-
-        audioRecorder.current.start();
-        setRecording(true);
-
-      } catch (err) {
-        console.error('Error accessing the microphone', err);
-      }
-    }
-  };
-
-  const handleAudioStop = () => {
-    if (audioRecorder.current && recording) {
-      audioRecorder.current.stop();
-    }
-  };
   const [requestBody, setRequestBody] = useReducer(
     (state: ChatState, action: ChatAction<keyof ChatState>): ChatState => {
       return { ...state, [action.field]: action.value };
@@ -171,12 +48,140 @@ export function ChatInferenceModule() {
       presence_penalty: 0,
       frequency_penalty: 0,
       context_length_exceeded_behavior: 'truncate',
-      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
-      // ...model.generationDefaults!,
       temperature: 0,
       max_tokens: 1024,
     },
   );
+
+  useEffect(() => {
+    fetch('/api/functionSpecs')
+      .then(response => response.json())
+      .then(data => setFunctionSpecs(data))
+      .catch(error => console.error('Error fetching function specs:', error));
+  }, []);
+
+  useEffect(() => {
+    if (isCameraMode && videoRef.current) {
+      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+        .then(stream => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+          startAudioRecording(stream);
+        })
+        .catch(err => console.error("Error accessing the camera and microphone", err));
+    } else if (!isCameraMode) {
+      stopCameraAndAudio();
+    }
+  }, [isCameraMode]);
+
+  useEffect(() => {
+    if (capturedImageUrl && !isTranscribing && pendingMessage) {
+      const message = transcribedAudio || pendingMessage;
+      fetchChatCompletion(`${message} Here is the image url: ${capturedImageUrl}`);
+      setCapturedImageUrl(null);
+      setPendingMessage(null);
+    }
+  }, [capturedImageUrl, isTranscribing, transcribedAudio, pendingMessage]);
+
+  const startAudioRecording = (stream: MediaStream) => {
+    audioRecorder.current = new MediaRecorder(stream);
+    audioChunks.current = [];
+
+    audioRecorder.current.ondataavailable = (event) => {
+      audioChunks.current.push(event.data);
+    };
+
+    audioRecorder.current.onstop = async () => {
+      const audioBlob = new Blob(audioChunks.current, { type: 'audio/mp3' });
+      await transcribeAudio(audioBlob);
+    };
+
+    audioRecorder.current.start();
+    setRecording(true);
+  };
+
+  const stopCameraAndAudio = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      const tracks = stream.getTracks();
+      tracks.forEach(track => track.stop());
+    }
+    if (audioRecorder.current && recording) {
+      audioRecorder.current.stop();
+    }
+    setRecording(false);
+    setCapturedImage(null);
+  };
+
+  const handleCameraToggle = () => {
+    setIsCameraMode(!isCameraMode);
+  };
+
+  const captureAndSendImage = async () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      if (context) {
+        context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+        const imageDataUrl = canvasRef.current.toDataURL('image/jpeg');
+
+        // Close camera view and stop recording
+        setIsCameraMode(false);
+        stopCameraAndAudio();
+
+        try {
+          const uploadResponse = await fetch('/api/upload-image', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ imageData: imageDataUrl }),
+          });
+
+          if (!uploadResponse.ok) {
+            throw new Error('Failed to upload image');
+          }
+
+          const { imageUrl } = await uploadResponse.json();
+          setCapturedImageUrl(imageUrl);
+          setPendingMessage("What's in this image?");
+        } catch (error) {
+          console.error('Error in captureAndSendImage:', error);
+        }
+      }
+    }
+  };
+
+  const transcribeAudio = async (audioBlob: Blob) => {
+    try {
+      setIsTranscribing(true);
+
+      const response = await fetch('/api/audio-transcription', {
+        method: 'POST',
+        body: audioBlob,
+        headers: {
+          'Content-Type': 'audio/mp3',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Audio transcription failed');
+      }
+
+      const data = await response.json();
+      console.log("Transcription response:", data);
+
+      if (data && data.text) {
+        setTranscribedAudio(data.text);
+        setIsTranscribing(false);
+      }
+    } catch (error) {
+      console.error('Error transcribing audio:', error);
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
 
   // eslint-disable-next-line complexity
   const fetchChatCompletion = async (text: string) => {
@@ -282,7 +287,6 @@ export function ChatInferenceModule() {
 
   return (
     <div className="md:flex md:space-x-6 sm:mt-4 overflow-y-auto">
-      {/*<div className="md:w-2/3">*/}
       <div className="md:w-full">
         <Card className="max-sm:rounded-none flex h-[calc(100dvh-1.5rem)] sm:h-[calc(100dvh-2rem)] max-sm:w-screen overflow-hidden py-0 ">
           <div className="pl-4 pt-2 md:pt4 pb-4 flex w-full flex-col flex-1">
@@ -302,7 +306,19 @@ export function ChatInferenceModule() {
               </Toggle>
             </div>
             <div className="border-b pt-2 border-zinc-200 w-full h-1 mr-2" />
-            {requestBody.messages.length === 0 && (
+            {isCameraMode && (
+              <div className="relative">
+                <video ref={videoRef} autoPlay className="w-full" />
+                <canvas ref={canvasRef} className="hidden" />
+                <Button
+                  onClick={captureAndSendImage}
+                  className="absolute bottom-4 left-1/2 transform -translate-x-1/2 px-4 py-2 bg-blue-500 text-white rounded"
+                >
+                  Capture and Send
+                </Button>
+              </div>
+            )}
+            {requestBody.messages.length === 0 && !isCameraMode && (
               <div className="mt-8 md:pt-16 mx-auto">
                 <EmptyLLMOutput />
               </div>
@@ -319,15 +335,16 @@ export function ChatInferenceModule() {
             </ChatMessages>
 
             <div className="w-full justify-center pr-4 flex items-center space-x-2">
-              <div className="flex-grow">
+              <div className="flex-grow flex items-center space-x-2">
                 <ChatInput onSubmit={fetchChatCompletion} multiModal={false} isLoading={isLoading} />
+                <Button
+                  className="md:border md:shadow-sm"
+                  variant="ghost"
+                  onClick={handleCameraToggle}
+                >
+                  <CameraIcon className="w-5 h-5 text-zinc-400" />
+                </Button>
               </div>
-              <Button
-                onClick={recording ? handleAudioStop : handleAudioStart}
-                className="px-4 py-2 bg-red-500 text-white rounded whitespace-nowrap"
-              >
-                {recording ? 'Stop Recording' : 'Voice Search'}
-              </Button>
             </div>
             <ChatScrollAnchor trackVisibility={isLoading} />
           </div>
@@ -335,5 +352,5 @@ export function ChatInferenceModule() {
       </div>
     </div>
   );
-}
 
+}
