@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 
+// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
 class Api {
   static async spec(req: NextApiRequest, res: NextApiResponse) {
     res.json({
@@ -31,8 +32,8 @@ class Api {
                       properties: {
                         label: { type: 'string' },
                         data: { type: 'array', items: { type: 'number' } },
-                        backgroundColor: { 
-                          type: 'array', 
+                        backgroundColor: {
+                          type: 'array',
                           items: { type: 'string' },
                           description: 'Array of colors for each data point'
                         },
@@ -110,12 +111,16 @@ class Api {
     ];
 
     // Apply default styles if not provided
-    jsonObj.data.datasets = jsonObj.data.datasets.map((dataset: any, index: number) => ({
+    // biome-ignore lint/suspicious/noExplicitAny: <explanation>
+        jsonObj.data.datasets = jsonObj.data.datasets.map((dataset: any, index: number) => ({
       backgroundColor: defaultColors?.[index % defaultColors.length] || 'defaultColor', // Added optional chaining and fallback
       borderColor: defaultColors?.[index % defaultColors.length]?.replace('0.8', '1') || 'defaultBorderColor', // Added optional chaining and fallback
       borderWidth: 1,
       ...dataset
     }));
+
+    console.log('jsonObj');
+    console.log(jsonObj.data.datasets);
 
     // Add default options if not provided
     jsonObj.options = {

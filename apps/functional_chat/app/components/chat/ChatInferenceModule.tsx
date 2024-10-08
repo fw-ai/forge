@@ -218,6 +218,8 @@ export function ChatInferenceModule() {
 
       do {
         const toolMessage = await callFunctions(assistantMessage);
+        console.log('toolMessage');
+        console.log(toolMessage);
         if (toolMessage === null) {
           break;
         } else {
