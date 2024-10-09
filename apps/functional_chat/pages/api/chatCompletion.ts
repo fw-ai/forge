@@ -20,7 +20,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const apiKey = process.env.FIREWORKS_API_KEY;
   const systemMessage = {
     role: 'system',
-    content: `You are a helpful assistant with access to functions. Use them if needed. If a function is not available, do not make one up. The date and time is ${new Date()}.`
+    content: `You are a helpful assistant with access to functions. Use them if needed. If a function is not available, do not make one up. The date and time is ${new Date()}. If asked about stocks/companies, use Google and Amazon as examples.`
   };
 
   const endpointsStr = process.env.ACTIVE_FUNCTIONS;
