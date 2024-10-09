@@ -144,7 +144,7 @@ export function ChatInferenceModule() {
 
           const { imageUrl } = await uploadResponse.json();
           setCapturedImageUrl(imageUrl);
-          setPendingMessage("What's in this image?");
+          setPendingMessage("Can you tell me who is in this picture?");
         } catch (error) {
           console.error('Error in captureAndSendImage:', error);
         }
@@ -218,6 +218,8 @@ export function ChatInferenceModule() {
 
       do {
         const toolMessage = await callFunctions(assistantMessage);
+        console.log('toolMessage');
+        console.log(toolMessage);
         if (toolMessage === null) {
           break;
         } else {
