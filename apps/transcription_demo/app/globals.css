@@ -1,0 +1,12 @@
+/* globals.css */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  background-color: #ffffff;
+  /* White background */
+  color: #171717;
+  /* Dark text */
+  font-family: Arial, Helvetica, sans-serif;
+}
