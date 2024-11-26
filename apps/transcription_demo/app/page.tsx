@@ -1,12 +1,15 @@
+// ./app/page.tsx
+
 'use client';
 
 import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import { transcribe } from './lib/transcribe';
 import Page from './components/Page';
+import { TranscribedData, Page as PageType } from './types';
 
 export default function Home() {
-    const [transcribedData, setTranscribedData] = useState<any>(null);
+    const [transcribedData, setTranscribedData] = useState<TranscribedData | null>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -16,11 +19,16 @@ export default function Home() {
         setTranscribedData(null);
 
         try {
-            const resultText = await transcribe(file);
-            const parsedData = JSON.parse(resultText);
-            setTranscribedData(parsedData);
+            const parsedData = await transcribe(file);
+            console.log('Parsed Data:', parsedData); // Logging for debugging
+
+            if (parsedData && Array.isArray(parsedData.pages)) {
+                setTranscribedData(parsedData);
+            } else {
+                throw new Error('Invalid transcription data format.');
+            }
         } catch (error) {
-            console.error(error);
+            console.error('Upload Error:', error);
             setError((error as Error).message || 'An error occurred while processing the file.');
         }
 
@@ -50,7 +58,7 @@ export default function Home() {
                             Transcribed Document
                         </h2>
                         <div className="space-y-8">
-                            {transcribedData.pages.map((page: any, pageIndex: number) => (
+                            {transcribedData.pages.map((page: PageType, pageIndex: number) => (
                                 <Page key={pageIndex} pageNumber={pageIndex + 1} fragments={page.fragments} />
                             ))}
                         </div>

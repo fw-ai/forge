@@ -20,19 +20,20 @@ const FileUpload: React.FC<FileUploadProps> = ({ onUpload, isLoading }) => {
         }
     };
 
-    const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
+    // Updated event types to HTMLFormElement
+    const handleDragOver = (e: DragEvent<HTMLFormElement>) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(true);
     };
 
-    const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
+    const handleDragLeave = (e: DragEvent<HTMLFormElement>) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);
     };
 
-    const handleDrop = (e: DragEvent<HTMLDivElement>) => {
+    const handleDrop = (e: DragEvent<HTMLFormElement>) => {
         e.preventDefault();
         e.stopPropagation();
         setDragActive(false);

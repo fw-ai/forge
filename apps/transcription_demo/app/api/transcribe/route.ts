@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { TranscribedData } from '../../types';
 
 export const config = {
     api: {
@@ -10,7 +11,7 @@ export const config = {
 
 export async function POST(req: NextRequest) {
     try {
-        const { fileName, fileType, fileContent } = await req.json();
+        const { fileType, fileContent } = await req.json();
 
         // Construct the messages payload
         const messages = [
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
                         image_url: {
                             url: `data:${fileType};base64,${fileContent}`,
                         },
-                    }
+                    },
                 ],
             },
         ];
@@ -62,11 +63,34 @@ export async function POST(req: NextRequest) {
         }
 
         const apiData = await apiResponse.json();
+        console.log('API Data:', apiData); // Logging for debugging
 
         const resultText =
-            apiData.choices[0].message.content || 'No content received';
+            apiData.choices[0]?.message?.content || 'No content received';
+        console.log('Result Text:', resultText); // Logging for debugging
 
-        return NextResponse.json({ resultText });
+        // Parse the resultText assuming it's a JSON string
+        let parsedResult: TranscribedData;
+        try {
+            parsedResult = JSON.parse(resultText);
+        } catch (parseError) {
+            console.error('Error parsing resultText:', parseError);
+            return NextResponse.json(
+                { error: 'Invalid transcription data format.' },
+                { status: 500 }
+            );
+        }
+
+        // Validate the parsedResult structure
+        if (!parsedResult.pages || !Array.isArray(parsedResult.pages)) {
+            console.error('Parsed Result does not contain pages:', parsedResult);
+            return NextResponse.json(
+                { error: 'Transcription data is missing pages.' },
+                { status: 500 }
+            );
+        }
+
+        return NextResponse.json({ resultText: parsedResult });
     } catch (error) {
         console.error('Error in API handler:', error);
         return NextResponse.json(
