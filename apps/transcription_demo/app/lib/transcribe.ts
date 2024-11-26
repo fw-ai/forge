@@ -1,12 +1,11 @@
-'use client';
+import { TranscribedData } from '../types';
 
-export async function transcribe(file: File): Promise<string> {
+export async function transcribe(file: File): Promise<TranscribedData> {
     // Read the file as base64
     const base64File = await fileToBase64(file);
 
     // Prepare the data to send to the API route
     const data = {
-        fileName: file.name,
         fileType: file.type,
         fileContent: base64File,
     };
@@ -21,12 +20,14 @@ export async function transcribe(file: File): Promise<string> {
     });
 
     if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`API Error: ${response.status} ${errorText}`);
+        const errorData = await response.json();
+        throw new Error(`API Error: ${errorData.error || 'Unknown error occurred.'}`);
     }
 
     const responseData = await response.json();
-    return responseData.resultText;
+    console.log('Transcribe Function - API Response:', responseData); // Logging for debugging
+
+    return responseData.resultText; // This should now be TranscribedData
 }
 
 async function fileToBase64(file: File): Promise<string> {
