@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
                 role: 'user',
                 content: [
                     {
-                        type: 'image_url', // Adjust the type if needed
+                        type: 'image_url',
                         image_url: {
                             url: `data:${fileType};base64,${fileContent}`,
                         },
@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
             Accept: 'application/json',
             'Content-Type': 'application/json',
             Authorization: `Bearer ${process.env.FIREWORKS_API_KEY}`,
+            'x-fireworks-account-id': `${process.env.FIREWORKS_ACCOUNT_ID}`,
         };
 
         // Call the external API

@@ -3,45 +3,60 @@
 import { useState } from 'react';
 import FileUpload from './components/FileUpload';
 import { transcribe } from './lib/transcribe';
+import Page from './components/Page';
 
 export default function Home() {
-    const [transcribedText, setTranscribedText] = useState<string>('');
+    const [transcribedData, setTranscribedData] = useState<any>(null);
     const [loading, setLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
 
     const onUpload = async (file: File) => {
         setLoading(true);
         setError(null);
+        setTranscribedData(null);
 
         try {
             const resultText = await transcribe(file);
-            setTranscribedText(resultText);
+            const parsedData = JSON.parse(resultText);
+            setTranscribedData(parsedData);
         } catch (error) {
             console.error(error);
-            setError((error as Error).message);
+            setError((error as Error).message || 'An error occurred while processing the file.');
         }
 
         setLoading(false);
     };
 
     return (
-        <div className="w-full max-w-2xl mx-auto p-6">
-            <h1 className="text-3xl font-bold mb-6 text-center text-gray-800">
-                Document Transcriber Demo
-            </h1>
-            <FileUpload onUpload={onUpload} />
-            {loading && <p className="mt-4 text-blue-600">Processing...</p>}
-            {error && <p className="mt-4 text-red-600">{error}</p>}
-            {transcribedText && (
-                <div className="mt-8">
-                    <h2 className="text-2xl font-semibold mb-4 text-gray-800">
-                        Transcribed Text:
-                    </h2>
-                    <div className="p-4 bg-gray-100 text-gray-800 rounded shadow">
-                        <div dangerouslySetInnerHTML={{ __html: transcribedText }} />
-                    </div>
+        <div className="min-h-screen bg-gradient-to-b from-white to-gray-50 w-full">
+            <div className="w-full max-w-6xl mx-auto p-8">
+                <div className="bg-white rounded-2xl shadow-lg p-8 mb-8">
+                    <h1 className="text-3xl font-bold mb-8 text-center text-gray-800">
+                        Document Transcription Demo
+                    </h1>
+
+                    <FileUpload onUpload={onUpload} isLoading={loading} />
+
+                    {error && (
+                        <div className="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+                            <p className="text-red-600 font-medium">{error}</p>
+                        </div>
+                    )}
                 </div>
-            )}
+
+                {transcribedData && (
+                    <div className="bg-white rounded-2xl shadow-lg p-8">
+                        <h2 className="text-2xl font-bold mb-8 text-gray-800 border-b pb-4">
+                            Transcribed Document
+                        </h2>
+                        <div className="space-y-8">
+                            {transcribedData.pages.map((page: any, pageIndex: number) => (
+                                <Page key={pageIndex} pageNumber={pageIndex + 1} fragments={page.fragments} />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
