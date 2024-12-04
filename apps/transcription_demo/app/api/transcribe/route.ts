@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
         ];
 
         const payload = {
-            model: 'accounts/fireworks/agents/transcription',
-            max_tokens: 4096,
+            model: 'accounts/fireworks/agents/transcription-preview',
+            max_tokens: 8192,
             temperature: 0.0,
             messages: messages,
         };
