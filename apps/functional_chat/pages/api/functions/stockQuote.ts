@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import { cache } from '~/lib/cache';
 
+// biome-ignore lint/complexity/noStaticOnlyClass: <explanation>
 class Api {
   static async spec(req: NextApiRequest, res: NextApiResponse) {
     res.json({
@@ -48,6 +49,8 @@ class Api {
     }
 
     const data = await response.json();
+
+    console.log(data);
 
     res.json(data);
   }
