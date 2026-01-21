@@ -26,7 +26,7 @@ interface CacheOptions {
   ttl?: number;
 }
 
-export function cache({ keyGenerator, ttl = DEFAULT_TTL }: CacheOptions) {
+export function cacheJson({ keyGenerator, ttl = DEFAULT_TTL }: CacheOptions) {
   return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
@@ -51,6 +51,40 @@ export function cache({ keyGenerator, ttl = DEFAULT_TTL }: CacheOptions) {
       res.json = (body: any) => {
         setCache(cacheKey, body, ttl);
         originalSend(body);
+      };
+
+      await originalMethod.apply(this, args);
+    };
+
+    return descriptor;
+  };
+}
+
+export function cacheSend({ keyGenerator, ttl = DEFAULT_TTL }: CacheOptions) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    const originalMethod = descriptor.value;
+
+    descriptor.value = async function (...args: any[]) {
+      const [req, res] = args;
+
+      if (ttl <= 0) {
+        // If TTL is less than or equal to 0, bypass cache
+        return await originalMethod.apply(this, args);
+      }
+
+      const cacheKey = keyGenerator(...args);
+      const cachedData = getCache(cacheKey);
+
+      if (cachedData) {
+        res.send(cachedData); // Set the cached response
+        return;
+      }
+
+      // Capture the original send method to extract data
+      const originalSend = res.send.bind(res);
+      res.send = (buffer: any) => {
+        setCache(cacheKey, buffer, ttl);
+        originalSend(buffer);
       };
 
       await originalMethod.apply(this, args);

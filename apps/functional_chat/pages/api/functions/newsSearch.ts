@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { cache } from '~/lib/cache';
+import { cacheJson } from '~/lib/cache';
 
 class Api {
   static async spec(req: NextApiRequest, res: NextApiResponse) {
@@ -26,7 +26,7 @@ class Api {
     });
   }
 
-  @cache({ keyGenerator: (req: NextApiRequest) => JSON.stringify(req.query) })
+  @cacheJson({ keyGenerator: (req: NextApiRequest) => JSON.stringify(req.query) })
   static async call(req: NextApiRequest, res: NextApiResponse) {
     // Access additional parameters from req.query
     const { args } = req.query;
