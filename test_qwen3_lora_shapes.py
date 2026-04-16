@@ -1,20 +1,28 @@
 #!/usr/bin/env python3
 """E2E test for Qwen3 LoRA training shapes on Fireworks AI.
 
-Tests that all Qwen3 (and Qwen 3.5) LoRA training shapes are properly
-configured for external account usage:
+Tests that all Qwen 3.5 LoRA training shapes are properly configured
+and accessible for a given account:
 
-  1. Shape exists and is readable
-  2. Shape has at least one version
-  3. Shape has a latestValidated version
-  4. The latestValidated version is marked public (required for external accounts)
-  5. The shape references a valid deployment shape
-  6. The shape has correct trainerMode (LORA_TRAINER or FORWARD_ONLY)
+  Phase 1 — Shape metadata validation:
+    - Shape exists and is readable
+    - Has correct trainerMode, baseModel, deploymentShapeVersion
+    - Has at least one version with latestValidated=True and public=True
+
+  Phase 2 — Dependency chain access:
+    - Base model is accessible (GET returns 200)
+    - Deployment shape and its version are accessible
+    - Deployment shape version is public and validated
+
+  Phase 3 — Job lifecycle E2E (opt-in via --create-job):
+    - Creates a service-mode RLOR trainer job with LoRA config
+    - Verifies job reaches RUNNING state
+    - Deletes the job
 
 Usage:
   FIREWORKS_API_KEY=... python test_qwen3_lora_shapes.py
   FIREWORKS_API_KEY=... python test_qwen3_lora_shapes.py --verbose
-  FIREWORKS_API_KEY=... python test_qwen3_lora_shapes.py --account ailabs-account-id
+  FIREWORKS_API_KEY=... python test_qwen3_lora_shapes.py --create-job --shape qwen3p5-9b-256k-lora
 """
 
 from __future__ import annotations
@@ -23,99 +31,59 @@ import argparse
 import json
 import os
 import sys
+import time
 from dataclasses import dataclass, field
 from typing import Any
 
 import httpx
 
-# All Qwen3 LoRA training shapes (current and legacy).
-# These are the shapes that should be available to external customers.
-QWEN3_LORA_SHAPES = {
-    # Qwen 3.5 (current generation, documented)
+# ─────────────────────────────────────────────────────────────────────
+# Shape catalog
+# ─────────────────────────────────────────────────────────────────────
+
+QWEN3P5_LORA_SHAPES: dict[str, dict[str, Any]] = {
     "qwen3p5-9b-256k-lora": {
         "expected_model": "accounts/fireworks/models/qwen3p5-9b",
         "expected_mode": "LORA_TRAINER",
-        "documented": True,
     },
     "qwen3p5-27b-256k-lora": {
         "expected_model": "accounts/fireworks/models/qwen3p5-27b",
         "expected_mode": "LORA_TRAINER",
-        "documented": True,
     },
     "qwen3p5-35b-a3b-256k-lora": {
         "expected_model": "accounts/fireworks/models/qwen3p5-35b-a3b",
         "expected_mode": "LORA_TRAINER",
-        "documented": True,
     },
     "qwen3p5-397b-a17b-256k-lora": {
         "expected_model": "accounts/fireworks/models/qwen3p5-397b-a17b",
         "expected_mode": "LORA_TRAINER",
-        "documented": True,
-    },
-    # Qwen3 legacy LoRA shapes (still referenced internally)
-    "qwen3-4b-256k-h200-lora": {
-        "expected_model": "accounts/fireworks/models/qwen3-4b",
-        "expected_mode": "LORA_TRAINER",
-        "documented": False,
-    },
-    "qwen3-8b-256k-h200-lora": {
-        "expected_model": "accounts/fireworks/models/qwen3-8b",
-        "expected_mode": "LORA_TRAINER",
-        "documented": False,
-    },
-    "qwen3-4b-minimum-h200-lora": {
-        "expected_model": "accounts/fireworks/models/qwen3-4b",
-        "expected_mode": "LORA_TRAINER",
-        "documented": False,
-    },
-    "qwen3-4b-minimum-h200-forward-lora": {
-        "expected_model": "accounts/fireworks/models/qwen3-4b",
-        "expected_mode": "FORWARD_ONLY",
-        "documented": False,
-    },
-    "qwen3-235b-2507-instruct-128k-b200-lora": {
-        "expected_model": "accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
-        "expected_mode": "LORA_TRAINER",
-        "documented": False,
-    },
-    "qwen3-235b-2507-instruct-128k-b200-forward-only-lora": {
-        "expected_model": "accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
-        "expected_mode": "FORWARD_ONLY",
-        "documented": False,
-    },
-    "qwen3-vl-8b-256k-h200-lora": {
-        "expected_model": "accounts/fireworks/models/qwen3-vl-8b-instruct",
-        "expected_mode": "LORA_TRAINER",
-        "documented": False,
     },
 }
 
 
+# ─────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────
+
 @dataclass
 class TestResult:
-    shape_name: str
-    passed: bool
+    name: str
+    passed: bool = True
     checks: list[tuple[str, bool, str]] = field(default_factory=list)
 
-    def add_check(self, name: str, passed: bool, detail: str = ""):
-        self.checks.append((name, passed, detail))
-        if not passed:
+    def check(self, label: str, ok: bool, detail: str = ""):
+        self.checks.append((label, ok, detail))
+        if not ok:
             self.passed = False
+        return ok
 
 
-def get_headers(api_key: str) -> dict:
-    return {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
+def headers_for(api_key: str) -> dict:
+    return {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
 
 
 def resolve_account_id(api_key: str, base_url: str) -> str:
-    resp = httpx.get(
-        f"{base_url}/v1/accounts",
-        headers=get_headers(api_key),
-        timeout=30,
-    )
+    resp = httpx.get(f"{base_url}/v1/accounts", headers=headers_for(api_key), timeout=30)
     resp.raise_for_status()
     accounts = resp.json().get("accounts", [])
     if not accounts:
@@ -123,197 +91,265 @@ def resolve_account_id(api_key: str, base_url: str) -> str:
     return accounts[0]["name"].split("/")[-1]
 
 
-def test_shape(
-    api_key: str,
-    shape_short_name: str,
-    expected: dict,
-    base_url: str,
-    verbose: bool = False,
+# ─────────────────────────────────────────────────────────────────────
+# Phase 1: Shape metadata validation
+# ─────────────────────────────────────────────────────────────────────
+
+def test_shape_metadata(
+    api_key: str, shape_short: str, expected: dict, base_url: str, verbose: bool
 ) -> TestResult:
-    """Run all checks on a single training shape."""
-    headers = get_headers(api_key)
-    shape_id = f"accounts/fireworks/trainingShapes/{shape_short_name}"
-    result = TestResult(shape_name=shape_short_name, passed=True)
+    h = headers_for(api_key)
+    shape_id = f"accounts/fireworks/trainingShapes/{shape_short}"
+    r = TestResult(name=shape_short)
 
     # 1. Shape exists
-    resp = httpx.get(f"{base_url}/v1/{shape_id}", headers=headers, timeout=30)
-    result.add_check(
-        "shape_exists",
-        resp.status_code == 200,
-        f"HTTP {resp.status_code}" if resp.status_code != 200 else "OK",
-    )
-    if resp.status_code != 200:
-        return result
+    resp = httpx.get(f"{base_url}/v1/{shape_id}", headers=h, timeout=30)
+    if not r.check("shape_exists", resp.status_code == 200, f"HTTP {resp.status_code}"):
+        return r
+    shape = resp.json()
 
-    shape_data = resp.json()
-
-    # 2. Correct trainer mode
-    actual_mode = shape_data.get("trainerMode", "UNKNOWN")
-    expected_mode = expected["expected_mode"]
-    result.add_check(
+    # 2. Trainer mode
+    r.check(
         "trainer_mode",
-        actual_mode == expected_mode,
-        f"expected={expected_mode} actual={actual_mode}",
+        shape.get("trainerMode") == expected["expected_mode"],
+        f"got {shape.get('trainerMode')}",
     )
 
-    # 3. Correct base model
-    actual_model = shape_data.get("baseModel", "")
-    expected_model = expected["expected_model"]
-    result.add_check(
+    # 3. Base model
+    r.check(
         "base_model",
-        actual_model == expected_model,
-        f"expected={expected_model} actual={actual_model}",
+        shape.get("baseModel") == expected["expected_model"],
+        f"got {shape.get('baseModel')}",
     )
 
     # 4. Has deployment shape version
-    deploy_shape = shape_data.get("deploymentShapeVersion", "")
-    result.add_check(
-        "deployment_shape",
-        bool(deploy_shape),
-        deploy_shape or "MISSING",
-    )
+    deploy_sv = shape.get("deploymentShapeVersion", "")
+    r.check("has_deployment_shape_version", bool(deploy_sv), deploy_sv or "MISSING")
 
     # 5. Has trainer image tag
-    image_tag = shape_data.get("trainerImageTag", "")
-    result.add_check(
-        "trainer_image_tag",
-        bool(image_tag),
-        image_tag or "MISSING",
-    )
+    r.check("has_trainer_image_tag", bool(shape.get("trainerImageTag")), shape.get("trainerImageTag", "MISSING"))
 
-    # 6. Has versions
-    resp2 = httpx.get(
-        f"{base_url}/v1/{shape_id}/versions", headers=headers, timeout=30
-    )
-    result.add_check(
-        "versions_endpoint",
-        resp2.status_code == 200,
-        f"HTTP {resp2.status_code}" if resp2.status_code != 200 else "OK",
-    )
-    if resp2.status_code != 200:
-        return result
+    # 6. Versions exist
+    resp2 = httpx.get(f"{base_url}/v1/{shape_id}/versions", headers=h, timeout=30)
+    if not r.check("versions_accessible", resp2.status_code == 200, f"HTTP {resp2.status_code}"):
+        return r
 
     versions = resp2.json().get("trainingShapeVersions", [])
-    result.add_check(
-        "has_versions",
-        len(versions) > 0,
-        f"{len(versions)} versions",
-    )
-    if not versions:
-        return result
+    r.check("has_versions", len(versions) > 0, f"{len(versions)} total")
 
-    # 7. Has validated versions
-    validated = [v for v in versions if v.get("validated", False)]
-    result.add_check(
-        "has_validated",
-        len(validated) > 0,
-        f"{len(validated)} validated out of {len(versions)} total",
-    )
+    # 7. Has latestValidated
+    latest = [v for v in versions if v.get("latestValidated")]
+    r.check("has_latest_validated", len(latest) == 1, f"{len(latest)} found")
 
-    # 8. Has latestValidated version
-    latest_validated = [v for v in versions if v.get("latestValidated", False)]
-    result.add_check(
-        "has_latest_validated",
-        len(latest_validated) == 1,
-        f"{len(latest_validated)} latestValidated versions",
-    )
-
-    # 9. latestValidated version is PUBLIC (critical for external accounts!)
-    if latest_validated:
-        lv = latest_validated[0]
-        is_public = lv.get("public", False)
-        result.add_check(
-            "latest_validated_is_public",
-            is_public,
-            f"public={is_public} version={lv['name'].split('/')[-1]}",
-        )
-
-        if verbose:
-            lv_snapshot = lv.get("snapshot", {})
-            result.add_check(
-                "version_has_snapshot",
-                bool(lv_snapshot),
-                "snapshot present" if lv_snapshot else "MISSING snapshot",
-            )
+    # 8. latestValidated is public
+    if latest:
+        lv = latest[0]
+        ver_id = lv["name"].split("/")[-1]
+        r.check("latest_validated_public", lv.get("public", False), f"version={ver_id} public={lv.get('public')}")
+        r.check("latest_validated_validated", lv.get("validated", False), f"validated={lv.get('validated')}")
     else:
-        result.add_check(
-            "latest_validated_is_public",
-            False,
-            "no latestValidated version to check",
-        )
+        r.check("latest_validated_public", False, "no latestValidated to check")
 
-    return result
+    return r
 
 
-def test_shape_resolution_as_account(
-    api_key: str,
-    account_id: str,
-    shape_short_name: str,
-    base_url: str,
-) -> tuple[bool, str]:
-    """Simulate what the SDK's resolve_training_profile does for an account.
+# ─────────────────────────────────────────────────────────────────────
+# Phase 2: Dependency chain access
+# ─────────────────────────────────────────────────────────────────────
 
-    The SDK finds the latestValidated version with public=True.
-    If no such version exists, external accounts will fail.
-    """
-    headers = get_headers(api_key)
-    shape_id = f"accounts/fireworks/trainingShapes/{shape_short_name}"
+def test_dependency_chain(
+    api_key: str, shape_short: str, base_url: str, verbose: bool
+) -> TestResult:
+    h = headers_for(api_key)
+    shape_id = f"accounts/fireworks/trainingShapes/{shape_short}"
+    r = TestResult(name=f"{shape_short} (deps)")
 
-    resp = httpx.get(
-        f"{base_url}/v1/{shape_id}/versions", headers=headers, timeout=30
-    )
+    resp = httpx.get(f"{base_url}/v1/{shape_id}", headers=h, timeout=30)
     if resp.status_code != 200:
-        return False, f"Cannot list versions: HTTP {resp.status_code}"
+        r.check("shape_read", False, f"HTTP {resp.status_code}")
+        return r
+    shape = resp.json()
 
-    versions = resp.json().get("trainingShapeVersions", [])
+    # 1. Base model accessible
+    base_model = shape.get("baseModel", "")
+    if base_model:
+        resp2 = httpx.get(f"{base_url}/v1/{base_model}", headers=h, timeout=30)
+        r.check("base_model_accessible", resp2.status_code == 200, f"{base_model} → HTTP {resp2.status_code}")
+        if resp2.status_code == 200:
+            model_data = resp2.json()
+            r.check(
+                "base_model_ready",
+                model_data.get("state") == "READY",
+                f"state={model_data.get('state')}",
+            )
 
-    # The SDK looks for a version that is both latestValidated AND public
-    public_validated = [
-        v
-        for v in versions
-        if v.get("latestValidated", False) and v.get("public", False)
-    ]
+    # 2. Deployment shape version accessible
+    deploy_sv = shape.get("deploymentShapeVersion", "")
+    if deploy_sv:
+        resp3 = httpx.get(f"{base_url}/v1/{deploy_sv}", headers=h, timeout=30)
+        r.check("deploy_shape_version_accessible", resp3.status_code == 200, f"{deploy_sv} → HTTP {resp3.status_code}")
+        if resp3.status_code == 200:
+            dsv_data = resp3.json()
+            r.check("deploy_shape_version_public", dsv_data.get("public", False), f"public={dsv_data.get('public')}")
+            r.check("deploy_shape_version_validated", dsv_data.get("validated", False), f"validated={dsv_data.get('validated')}")
 
-    if public_validated:
-        v = public_validated[0]
-        return True, v["name"]
+    # 3. Deployment shape parent accessible
+    if deploy_sv:
+        deploy_parent = "/".join(deploy_sv.split("/")[:4])
+        resp4 = httpx.get(f"{base_url}/v1/{deploy_parent}", headers=h, timeout=30)
+        r.check("deploy_shape_parent_accessible", resp4.status_code == 200, f"{deploy_parent} → HTTP {resp4.status_code}")
 
-    # Check if there's a latestValidated but it's not public
-    latest_val = [v for v in versions if v.get("latestValidated", False)]
-    if latest_val:
-        v = latest_val[0]
-        return (
-            False,
-            f"latestValidated exists ({v['name'].split('/')[-1]}) "
-            f"but public={v.get('public', False)} — "
-            f"external accounts cannot resolve this shape",
+    # 4. Training shape version snapshot has correct deployment shape ref
+    resp5 = httpx.get(f"{base_url}/v1/{shape_id}/versions", headers=h, timeout=30)
+    if resp5.status_code == 200:
+        versions = resp5.json().get("trainingShapeVersions", [])
+        latest = [v for v in versions if v.get("latestValidated")]
+        if latest:
+            snapshot = latest[0].get("snapshot", {})
+            snap_deploy = snapshot.get("deploymentShapeVersion", "")
+            r.check(
+                "version_snapshot_deploy_shape",
+                snap_deploy == deploy_sv,
+                f"shape={deploy_sv} snapshot={snap_deploy}",
+            )
+
+    return r
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Phase 3: Job lifecycle E2E
+# ─────────────────────────────────────────────────────────────────────
+
+def test_job_lifecycle(
+    api_key: str,
+    shape_short: str,
+    account_id: str,
+    base_url: str,
+    verbose: bool,
+    wait_timeout: float = 120,
+) -> TestResult:
+    h = headers_for(api_key)
+    shape_id = f"accounts/fireworks/trainingShapes/{shape_short}"
+    r = TestResult(name=f"{shape_short} (job)")
+
+    resp = httpx.get(f"{base_url}/v1/{shape_id}", headers=h, timeout=30)
+    if resp.status_code != 200:
+        r.check("shape_read", False, f"HTTP {resp.status_code}")
+        return r
+    shape = resp.json()
+
+    base_model = shape["baseModel"]
+    accel_type = shape.get("acceleratorType", "")
+    accel_count = shape.get("acceleratorCount", 0)
+    node_count = shape.get("nodeCount", 1)
+
+    # Create RLOR job
+    create_url = f"{base_url}/v1/accounts/{account_id}/rlorTrainerJobs"
+    body: dict[str, Any] = {
+        "serviceMode": True,
+        "keepAlive": True,
+        "displayName": f"e2e-test-{shape_short}",
+        "trainingConfig": {
+            "baseModel": base_model,
+            "loraRank": 16,
+            "learningRate": 1e-5,
+        },
+        "nodeCount": node_count,
+    }
+    if accel_type:
+        body["trainingConfig"]["acceleratorType"] = accel_type
+    if accel_count:
+        body["trainingConfig"]["acceleratorCount"] = accel_count
+
+    print(f"    Creating job for {shape_short}...")
+    resp2 = httpx.post(create_url, headers=h, json=body, timeout=120)
+    if not r.check(
+        "job_create",
+        resp2.status_code in (200, 201),
+        f"HTTP {resp2.status_code}: {resp2.text[:200]}",
+    ):
+        return r
+
+    job_data = resp2.json()
+    job_name = job_data.get("name", "")
+    job_id = job_name.split("/")[-1]
+    print(f"    Job created: {job_id}")
+
+    try:
+        # Wait for RUNNING
+        deadline = time.time() + wait_timeout
+        final_state = job_data.get("state", "UNKNOWN")
+        while time.time() < deadline:
+            time.sleep(5)
+            resp3 = httpx.get(f"{base_url}/v1/{job_name}", headers=h, timeout=30)
+            if resp3.status_code != 200:
+                continue
+            current = resp3.json()
+            final_state = current.get("state", "UNKNOWN")
+            status = current.get("status", {})
+
+            if verbose:
+                print(f"      state={final_state} status={status}")
+
+            if final_state == "JOB_STATE_RUNNING":
+                break
+            if final_state in ("JOB_STATE_FAILED", "JOB_STATE_CANCELLED"):
+                break
+
+        r.check(
+            "job_reached_running",
+            final_state == "JOB_STATE_RUNNING",
+            f"final_state={final_state}",
         )
 
-    return False, "No latestValidated version exists"
+    finally:
+        print(f"    Deleting job {job_id}...")
+        del_resp = httpx.delete(f"{base_url}/v1/{job_name}", headers=h, timeout=60)
+        r.check(
+            "job_delete",
+            del_resp.status_code in (200, 204),
+            f"HTTP {del_resp.status_code}",
+        )
+        print(f"    Deleted: HTTP {del_resp.status_code}")
+
+    return r
+
+
+# ─────────────────────────────────────────────────────────────────────
+# Main
+# ─────────────────────────────────────────────────────────────────────
+
+def print_result(r: TestResult, verbose: bool):
+    status = "PASS" if r.passed else "FAIL"
+    print(f"  {status}  {r.name}")
+    if verbose or not r.passed:
+        for label, ok, detail in r.checks:
+            marker = "✓" if ok else "✗"
+            print(f"       {marker} {label}: {detail}")
 
 
 def main():
     parser = argparse.ArgumentParser(
-        description="E2E test for Qwen3 LoRA training shapes"
+        description="E2E test for Qwen 3.5 LoRA training shapes"
     )
     parser.add_argument("--api-key", default=None, help="Fireworks API key")
+    parser.add_argument("--base-url", default="https://api.fireworks.ai", help="API base URL")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show all check details")
     parser.add_argument(
-        "--base-url",
-        default="https://api.fireworks.ai",
-        help="API base URL",
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Show all check details"
-    )
-    parser.add_argument(
-        "--account",
+        "--shape",
         default=None,
-        help="Account ID to test resolution against (auto-resolved if not set)",
+        help="Test only this shape (e.g. qwen3p5-9b-256k-lora)",
     )
     parser.add_argument(
-        "--only-documented",
+        "--create-job",
         action="store_true",
-        help="Only test shapes that are in the current docs",
+        help="Phase 3: actually create+delete an RLOR job (costs GPU time!)",
+    )
+    parser.add_argument(
+        "--wait-timeout",
+        type=float,
+        default=120,
+        help="Seconds to wait for job to reach RUNNING (default: 120)",
     )
     args = parser.parse_args()
 
@@ -322,92 +358,56 @@ def main():
         print("Error: FIREWORKS_API_KEY not set")
         sys.exit(1)
 
-    account_id = args.account
-    if not account_id:
-        account_id = resolve_account_id(api_key, args.base_url)
-    print(f"Testing as account: {account_id}")
+    account_id = resolve_account_id(api_key, args.base_url)
+    print(f"Account: {account_id}\n")
 
-    shapes_to_test = {
-        k: v
-        for k, v in QWEN3_LORA_SHAPES.items()
-        if not args.only_documented or v.get("documented", False)
-    }
-
-    print(f"Testing {len(shapes_to_test)} Qwen3 LoRA training shapes\n")
+    shapes = QWEN3P5_LORA_SHAPES
+    if args.shape:
+        if args.shape not in shapes:
+            print(f"Unknown shape: {args.shape}")
+            print(f"Available: {', '.join(shapes.keys())}")
+            sys.exit(1)
+        shapes = {args.shape: shapes[args.shape]}
 
     all_passed = True
-    results: list[TestResult] = []
 
-    for shape_name, expected in shapes_to_test.items():
-        documented = expected.get("documented", False)
-        tag = "[DOCS]  " if documented else "[LEGACY]"
-
-        result = test_shape(
-            api_key=api_key,
-            shape_short_name=shape_name,
-            expected=expected,
-            base_url=args.base_url,
-            verbose=args.verbose,
-        )
-        results.append(result)
-
-        status = "PASS" if result.passed else "FAIL"
-        print(f"  {status} {tag} {shape_name}")
-
-        if args.verbose or not result.passed:
-            for check_name, check_passed, detail in result.checks:
-                marker = "  ✓" if check_passed else "  ✗"
-                print(f"       {marker} {check_name}: {detail}")
-
-        if not result.passed:
+    # ── Phase 1 ──────────────────────────────────────────────────────
+    print(f"Phase 1: Shape metadata ({len(shapes)} shapes)")
+    print("-" * 60)
+    for name, expected in shapes.items():
+        r = test_shape_metadata(api_key, name, expected, args.base_url, args.verbose)
+        print_result(r, args.verbose)
+        if not r.passed:
             all_passed = False
 
-    # Resolution test
-    print(f"\n{'='*70}")
-    print("Shape resolution test (simulating external account)")
-    print(f"{'='*70}\n")
-
-    resolution_failures = []
-    for shape_name in shapes_to_test:
-        ok, detail = test_shape_resolution_as_account(
-            api_key=api_key,
-            account_id=account_id,
-            shape_short_name=shape_name,
-            base_url=args.base_url,
-        )
-        status = "PASS" if ok else "FAIL"
-        documented = shapes_to_test[shape_name].get("documented", False)
-        tag = "[DOCS]  " if documented else "[LEGACY]"
-        print(f"  {status} {tag} {shape_name}")
-        if not ok:
-            print(f"       → {detail}")
-            resolution_failures.append((shape_name, detail))
+    # ── Phase 2 ──────────────────────────────────────────────────────
+    print(f"\nPhase 2: Dependency chain access")
+    print("-" * 60)
+    for name in shapes:
+        r = test_dependency_chain(api_key, name, args.base_url, args.verbose)
+        print_result(r, args.verbose)
+        if not r.passed:
             all_passed = False
 
-    # Summary
-    print(f"\n{'='*70}")
-    total = len(shapes_to_test)
-    passed = sum(1 for r in results if r.passed)
-    print(f"Shape config:  {passed}/{total} passed")
+    # ── Phase 3 (opt-in) ─────────────────────────────────────────────
+    if args.create_job:
+        print(f"\nPhase 3: Job lifecycle E2E")
+        print("-" * 60)
+        for name in shapes:
+            r = test_job_lifecycle(
+                api_key, name, account_id, args.base_url, args.verbose, args.wait_timeout
+            )
+            print_result(r, args.verbose)
+            if not r.passed:
+                all_passed = False
 
-    resolution_passed = total - len(resolution_failures)
-    print(f"Resolution:    {resolution_passed}/{total} passed")
-
-    if resolution_failures:
-        print(f"\n⚠ Resolution failures (shapes external accounts CANNOT use):")
-        for name, detail in resolution_failures:
-            print(f"  • {name}: {detail}")
-        print(
-            f"\nFix: Mark the latestValidated version as public=True "
-            f"for each failing shape."
-        )
-
+    # ── Summary ──────────────────────────────────────────────────────
+    print(f"\n{'='*60}")
     if all_passed:
-        print(f"\nAll tests passed!")
-        return 0
+        print("All tests PASSED")
     else:
-        print(f"\nSome tests FAILED — see details above.")
-        return 1
+        print("Some tests FAILED — see details above")
+    return 0 if all_passed else 1
 
 
 if __name__ == "__main__":
