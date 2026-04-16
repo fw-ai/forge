@@ -110,12 +110,19 @@ def find_checkpoint(entries: list[dict], step: int | None) -> dict:
 # ---------------------------------------------------------------------------
 
 SHAPE_MAP = {
+    # Qwen 3.5 (current generation)
+    "qwen3p5-9b": "accounts/fireworks/trainingShapes/qwen3p5-9b-256k",
+    "qwen3p5-27b": "accounts/fireworks/trainingShapes/qwen3p5-27b-256k",
+    "qwen3p5-35b-a3b": "accounts/fireworks/trainingShapes/qwen3p5-35b-a3b-256k",
+    "qwen3p5-397b-a17b": "accounts/fireworks/trainingShapes/qwen3p5-397b-a17b-256k",
+    # Qwen 3 (legacy, some shapes may not be public)
     "qwen3-4b": "accounts/fireworks/trainingShapes/qwen3-4b-minimum",
     "qwen3-8b": "accounts/fireworks/trainingShapes/qwen3-8b-128k",
     "qwen3-32b": "accounts/fireworks/trainingShapes/qwen3-32b-65k",
     "qwen3-30b-a3b": "accounts/fireworks/trainingShapes/qwen3-30b-a3b-instruct-2507-128k",
     "qwen3-235b": "accounts/fireworks/trainingShapes/qwen3-235b-2507-instruct-128k",
     "qwen3-vl-8b": "accounts/fireworks/trainingShapes/qwen3-vl-8b-65k",
+    # Llama
     "llama-v3p3-70b": "accounts/fireworks/trainingShapes/llama70b-policy",
 }
 
